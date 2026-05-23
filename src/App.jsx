@@ -3,7 +3,7 @@ import "./App.css";
 
 function App() {
   const [updateMessage, setUpdateMessage] = useState("");
-const version = "0.1.5";
+const version = "0.1.7";
 
 
   useEffect(() => {
