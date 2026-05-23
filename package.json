@@ -25,7 +25,8 @@
     "firebase": "^12.13.0",
     "react": "latest",
     "react-dom": "latest",
-    "react-router-dom": "latest"
+    "react-router-dom": "latest",
+    "vite-plugin-package-version": "^1.1.0"
   },
   "devDependencies": {
     "concurrently": "latest",
@@ -45,12 +46,12 @@
       "electron/**/*",
       "package.json"
     ],
-   "publish": [
-  {
-    "provider": "generic",
-    "url": "https://nabadminapp.web.app/"
-  }
-],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://nabadminapp.web.app/"
+      }
+    ],
     "win": {
       "target": "nsis"
     },
