@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "target": "nabadminapp",
+    "public": "dist-electron",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

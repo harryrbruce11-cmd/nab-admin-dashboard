@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "harry-bruce-gaming-ltd"
+  },
+  "targets": {
+    "harry-bruce-gaming-ltd": {
+      "hosting": {
+        "nabadminapp": [
+          "nabadminapp"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
