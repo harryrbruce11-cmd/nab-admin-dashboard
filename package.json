@@ -1,7 +1,7 @@
 {
   "name": "nab-admin-dashboard",
   "productName": "NAB Admin Dashboard",
-  "version": "0.1.7",
+  "version": "0.1.10",
   "private": true,
   "description": "NAB Admin Dashboard desktop app",
   "author": "Harry Bruce",
@@ -10,19 +10,29 @@
   "scripts": {
     "dev": "concurrently \"npm run react-dev\" \"npm run electron-dev\"",
     "react-dev": "vite --host 0.0.0.0",
-    "electron-dev": "wait-on http://localhost:5173 && ELECTRON_START_URL=http://localhost:5173 electron .",
+    "electron-dev": "wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .",
+
     "build": "vite build",
+
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
-    "release": "npm run dist && firebase deploy --only hosting",
-    "release:win": "npm run dist:win && firebase deploy --only hosting",
-    "release:mac": "npm run dist:mac && firebase deploy --only hosting"
+
+    "copy-updates": "node scripts/copy-updates.js",
+    "deploy-updates": "firebase deploy --only hosting:nabadminapp",
+
+    "release": "npm run dist && npm run copy-updates && npm run deploy-updates",
+    "release:win": "npm run dist:win && npm run copy-updates && npm run deploy-updates",
+    "release:mac": "npm run dist:mac && npm run copy-updates && npm run deploy-updates",
+
+    "release:win:clean": "rimraf dist dist-electron && npm run release:win",
+    "release:mac:clean": "rm -rf dist dist-electron && npm run release:mac"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
     "electron-updater": "^6.8.3",
     "firebase": "^12.13.0",
+    "nodemailer": "^8.0.8",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
@@ -30,8 +40,10 @@
   },
   "devDependencies": {
     "concurrently": "latest",
+    "cross-env": "latest",
     "electron": "latest",
     "electron-builder": "latest",
+    "rimraf": "latest",
     "vite": "latest",
     "wait-on": "latest"
   },
@@ -46,17 +58,20 @@
       "electron/**/*",
       "package.json"
     ],
-    "publish": [
-      {
-        "provider": "generic",
-        "url": "https://nabadminapp.web.app/"
-      }
-    ],
+   "publish": [
+  {
+    "provider": "generic",
+    "url": "https://nabadminapp.web.app/"
+  }
+],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "category": "public.app-category.business",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
