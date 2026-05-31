@@ -19,3 +19,4 @@ If you are developing a production application, we recommend using TypeScript wi
 
 npm version patch
 npm run release:win
+npm run release:mac

@@ -188,15 +188,11 @@ function normaliseProduct(doc) {
 
 function App() {
   const [updateMessage, setUpdateMessage] = useState("");
-<<<<<<< HEAD
-const version = "0.1.7";
-=======
   const [productSearch, setProductSearch] = useState("");
   const [activeDepartment, setActiveDepartment] = useState("All Departments");
   const [activeCategory, setActiveCategory] = useState("all");
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [categoryMenuSearch, setCategoryMenuSearch] = useState("");
->>>>>>> 429d566 (Ready for Mac build)
 
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -1309,7 +1305,17 @@ function LoginScreen({
       <form onSubmit={onSubmit} style={loginCardStyle}>
         <div style={loginLogoStyle}>NAB</div>
         <p style={sectionEyebrowStyle}>Secure Admin Login</p>
-        <h1 style={{ margin: "8px 0 8px", fontSize: 34 }}>Parts Admin</h1>
+        <h1
+          style={{
+            margin: "8px 0 8px",
+            fontSize: 34,
+            color: "#111827",
+            fontWeight: 950,
+            letterSpacing: -0.8,
+          }}
+        >
+          Parts Admin
+        </h1>
         <p style={{ margin: "0 0 22px", color: "#64748b", fontWeight: 700 }}>
           Sign in with Firebase to access the admin dashboard. Version {version}
         </p>
@@ -1353,7 +1359,16 @@ function FullScreenMessage({ title, subtitle }) {
     <div style={loginPageStyle}>
       <div style={loginCardStyle}>
         <div style={loginLogoStyle}>NAB</div>
-        <h1 style={{ margin: "14px 0 8px", fontSize: 30 }}>{title}</h1>
+        <h1
+          style={{
+            margin: "14px 0 8px",
+            fontSize: 30,
+            color: "#111827",
+            fontWeight: 950,
+          }}
+        >
+          {title}
+        </h1>
         <p style={{ margin: 0, color: "#64748b", fontWeight: 700 }}>
           {subtitle}
         </p>
