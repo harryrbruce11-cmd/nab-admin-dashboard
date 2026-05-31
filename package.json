@@ -11,20 +11,15 @@
     "dev": "concurrently \"npm run react-dev\" \"npm run electron-dev\"",
     "react-dev": "vite --host 0.0.0.0",
     "electron-dev": "wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .",
-
     "build": "vite build",
-
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
-
     "copy-updates": "node scripts/copy-updates.js",
     "deploy-updates": "firebase deploy --only hosting:nabadminapp",
-
     "release": "npm run dist && npm run copy-updates && npm run deploy-updates",
     "release:win": "npm run dist:win && npm run copy-updates && npm run deploy-updates",
     "release:mac": "npm run dist:mac && npm run copy-updates && npm run deploy-updates",
-
     "release:win:clean": "rimraf dist dist-electron && npm run release:win",
     "release:mac:clean": "rm -rf dist dist-electron && npm run release:mac"
   },
@@ -58,18 +53,21 @@
       "electron/**/*",
       "package.json"
     ],
-   "publish": [
-  {
-    "provider": "generic",
-    "url": "https://nabadminapp.web.app/"
-  }
-],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://nabadminapp.web.app/updates"
+      }
+    ],
     "win": {
       "target": "nsis",
       "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "mac": {
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.business",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
