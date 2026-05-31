@@ -1,0 +1,145 @@
+name: Build and Deploy Desktop Updates
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: npm ci
+
+      - name: Build Windows installer
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+        run: npm run dist:win
+
+      - name: Collect Windows update files
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path upload\updates
+          Copy-Item "dist-electron\latest.yml" "upload\updates\" -Force
+          Copy-Item "dist-electron\*.exe" "upload\updates\" -Force
+          Copy-Item "dist-electron\*.blockmap" "upload\updates\" -Force
+
+      - name: Upload Windows files
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-update-files
+          path: upload/updates
+
+  build-mac:
+    name: Build Mac
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: npm ci
+
+      - name: Build Mac installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+        run: npm run dist:mac
+
+      - name: Collect Mac update files
+        run: |
+          mkdir -p upload/updates
+          cp dist-electron/latest-mac.yml upload/updates/
+          cp dist-electron/*.dmg upload/updates/ || true
+          cp dist-electron/*.zip upload/updates/ || true
+          cp dist-electron/*.blockmap upload/updates/ || true
+
+      - name: Upload Mac files
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-update-files
+          path: upload/updates
+
+  deploy:
+    name: Deploy Updates to Firebase
+    runs-on: ubuntu-latest
+    needs:
+      - build-windows
+      - build-mac
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Windows files
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-update-files
+          path: dist-electron/updates
+
+      - name: Download Mac files
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-update-files
+          path: dist-electron/updates
+
+      - name: Create update homepage
+        run: |
+          cat > dist-electron/index.html <<'EOF'
+          <!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <title>NAB Admin Updates</title>
+            </head>
+            <body style="font-family:Arial;background:#0f172a;color:white;display:grid;place-items:center;min-height:100vh;margin:0;">
+              <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);border-radius:22px;padding:28px;max-width:520px;text-align:center;">
+                <h1>NAB Admin Updates</h1>
+                <p>This site hosts Windows and Mac auto updates.</p>
+                <p><a style="color:#facc15;font-weight:800;" href="/updates/latest.yml">Windows feed</a></p>
+                <p><a style="color:#facc15;font-weight:800;" href="/updates/latest-mac.yml">Mac feed</a></p>
+              </div>
+            </body>
+          </html>
+          EOF
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy Firebase Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HARRY_BRUCE_GAMING_LTD }}
+        run: |
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$HOME/firebase-service-account.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$HOME/firebase-service-account.json"
+          firebase deploy --only hosting:nabadminapp --project harry-bruce-gaming-ltd
