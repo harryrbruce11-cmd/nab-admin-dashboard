@@ -871,14 +871,47 @@ function App() {
           </div>
         </div>
 
-        <div style={searchShellStyle}>
-          <span style={{ color: "#64748b", fontSize: 24 }}>⌕</span>
-          <input
-            value={productSearch}
-            onChange={(event) => setProductSearch(event.target.value)}
-            placeholder="Search products, SKU, barcode, category..."
-            style={searchInputStyle}
-          />
+        <div style={headerCenterStackStyle}>
+          <div style={compactPaulNoteStyle}>
+            <div style={compactPaulNoteTopStyle}>
+              <span style={compactPaulNoteLabelStyle}>Note for Paul</span>
+              <span style={compactPaulNoteMetaStyle}>
+                {paulNoteUpdatedAt
+                  ? `Updated ${formatShortDate(paulNoteUpdatedAt)}`
+                  : "Firestore note"}
+              </span>
+            </div>
+
+            <div style={compactPaulNoteRowStyle}>
+              <textarea
+                value={paulNoteDraft}
+                onChange={(event) => setPaulNoteDraft(event.target.value)}
+                placeholder="Write a quick note for Paul..."
+                style={compactPaulNoteInputStyle}
+              />
+              <button
+                onClick={handleSavePaulNote}
+                disabled={paulNoteSaving}
+                style={
+                  paulNoteSaving
+                    ? compactNoteSaveButtonDisabledStyle
+                    : compactNoteSaveButtonStyle
+                }
+              >
+                {paulNoteSaving ? "Saving" : "Save"}
+              </button>
+            </div>
+          </div>
+
+          <div style={searchShellStyle}>
+            <span style={{ color: "#64748b", fontSize: 24 }}>⌕</span>
+            <input
+              value={productSearch}
+              onChange={(event) => setProductSearch(event.target.value)}
+              placeholder="Search products, SKU, barcode, category..."
+              style={searchInputStyle}
+            />
+          </div>
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
@@ -1085,41 +1118,6 @@ function App() {
               <span style={statLabelStyle}>Images</span>
               <strong style={statValueStyle}>{imageCount}</strong>
             </div>
-          </div>
-
-          <div style={adminNoteCardStyle}>
-            <div style={adminNoteHeaderStyle}>
-              <div>
-                <p style={sectionEyebrowStyle}>Admin Note</p>
-                <h2 style={adminNoteTitleStyle}>Note for Paul</h2>
-                <p style={adminNoteMetaStyle}>
-                  {paulNoteUpdatedAt
-                    ? `Last updated: ${formatShortDate(paulNoteUpdatedAt)}`
-                    : "Saved in Firestore: adminNotes / paul"}
-                </p>
-              </div>
-              <button
-                onClick={handleSavePaulNote}
-                disabled={paulNoteSaving}
-                style={paulNoteSaving ? disabledNoteSaveButtonStyle : noteSaveButtonStyle}
-              >
-                {paulNoteSaving ? "Saving..." : "Save Note"}
-              </button>
-            </div>
-
-            <textarea
-              value={paulNoteDraft}
-              onChange={(event) => setPaulNoteDraft(event.target.value)}
-              placeholder="Write a note for Paul here..."
-              style={adminNoteTextareaStyle}
-            />
-
-            {paulNote && (
-              <div style={adminNotePreviewStyle}>
-                <span style={adminNotePreviewLabelStyle}>Current saved note</span>
-                <p style={adminNotePreviewTextStyle}>{paulNote}</p>
-              </div>
-            )}
           </div>
 
           <div style={productPanelStyle}>
@@ -1576,6 +1574,85 @@ const brandLogoStyle = {
   fontWeight: 950,
 };
 
+const headerCenterStackStyle = {
+  display: "grid",
+  gap: 10,
+  minWidth: 0,
+};
+
+const compactPaulNoteStyle = {
+  background: "#f8fafc",
+  border: "1px solid #dfe7f2",
+  borderRadius: 16,
+  padding: 10,
+  display: "grid",
+  gap: 8,
+};
+
+const compactPaulNoteTopStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const compactPaulNoteLabelStyle = {
+  color: "#2563eb",
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: 0.7,
+};
+
+const compactPaulNoteMetaStyle = {
+  color: "#64748b",
+  fontSize: 11,
+  fontWeight: 800,
+  whiteSpace: "nowrap",
+};
+
+const compactPaulNoteRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: 8,
+  alignItems: "center",
+};
+
+const compactPaulNoteInputStyle = {
+  width: "100%",
+  height: 42,
+  minHeight: 42,
+  border: "1px solid #dbe3ef",
+  borderRadius: 12,
+  background: "white",
+  color: "#111827",
+  padding: "10px 12px",
+  resize: "none",
+  outline: 0,
+  fontSize: 13,
+  fontWeight: 750,
+  lineHeight: 1.25,
+  boxSizing: "border-box",
+  fontFamily:
+    "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial",
+};
+
+const compactNoteSaveButtonStyle = {
+  border: "1px solid #2563eb",
+  background: "#2563eb",
+  color: "white",
+  borderRadius: 12,
+  padding: "11px 14px",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const compactNoteSaveButtonDisabledStyle = {
+  ...compactNoteSaveButtonStyle,
+  opacity: 0.65,
+  cursor: "not-allowed",
+};
+
 const searchShellStyle = {
   height: 58,
   borderRadius: 18,
@@ -1774,95 +1851,6 @@ const statValueStyle = {
   marginTop: 8,
   fontSize: 30,
   letterSpacing: -0.9,
-};
-
-const adminNoteCardStyle = {
-  background: "white",
-  border: "1px solid #dfe7f2",
-  borderRadius: 20,
-  padding: 18,
-  boxShadow: "0 16px 45px rgba(15,23,42,0.06)",
-  display: "grid",
-  gap: 14,
-  marginBottom: 18,
-};
-
-const adminNoteHeaderStyle = {
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: 16,
-  flexWrap: "wrap",
-};
-
-const adminNoteTitleStyle = {
-  margin: "6px 0 0",
-  fontSize: 24,
-  color: "#111827",
-};
-
-const adminNoteMetaStyle = {
-  margin: "6px 0 0",
-  color: "#64748b",
-  fontSize: 13,
-  fontWeight: 750,
-};
-
-const adminNoteTextareaStyle = {
-  width: "100%",
-  minHeight: 110,
-  border: "1px solid #dbe3ef",
-  borderRadius: 16,
-  background: "#f8fafc",
-  color: "#111827",
-  padding: 14,
-  resize: "vertical",
-  outline: 0,
-  fontSize: 15,
-  fontWeight: 750,
-  lineHeight: 1.5,
-  boxSizing: "border-box",
-};
-
-const noteSaveButtonStyle = {
-  border: "1px solid #2563eb",
-  background: "#2563eb",
-  color: "white",
-  borderRadius: 14,
-  padding: "13px 16px",
-  fontWeight: 950,
-  cursor: "pointer",
-};
-
-const disabledNoteSaveButtonStyle = {
-  ...noteSaveButtonStyle,
-  opacity: 0.65,
-  cursor: "not-allowed",
-};
-
-const adminNotePreviewStyle = {
-  background: "#eff6ff",
-  border: "1px solid #bfdbfe",
-  borderRadius: 16,
-  padding: 14,
-  display: "grid",
-  gap: 6,
-};
-
-const adminNotePreviewLabelStyle = {
-  color: "#1d4ed8",
-  fontSize: 12,
-  fontWeight: 950,
-  textTransform: "uppercase",
-  letterSpacing: 0.7,
-};
-
-const adminNotePreviewTextStyle = {
-  margin: 0,
-  color: "#1e293b",
-  fontSize: 14,
-  fontWeight: 750,
-  whiteSpace: "pre-wrap",
 };
 
 const productPanelStyle = {

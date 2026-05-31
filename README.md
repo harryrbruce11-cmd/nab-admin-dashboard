@@ -17,6 +17,7 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Send update
 
+
+
 npm version patch
-npm run release:win
-npm run release:mac
+git push origin main --tags
