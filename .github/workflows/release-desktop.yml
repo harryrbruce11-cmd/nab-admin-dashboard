@@ -23,7 +23,7 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Build Windows installer
+      - name: Build Windows
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -34,7 +34,7 @@ jobs:
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
         run: npm run dist:win
 
-      - name: Collect Windows update files
+      - name: Collect Windows files
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path upload\updates
@@ -64,7 +64,7 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Build Mac installer
+      - name: Build Mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -76,10 +76,10 @@ jobs:
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
         run: npm run dist:mac
 
-      - name: Collect Mac update files
+      - name: Collect Mac files
         run: |
           mkdir -p upload/updates
-          cp dist-electron/latest-mac.yml upload/updates/
+          cp dist-electron/latest-mac.yml upload/updates/ || true
           cp dist-electron/*.dmg upload/updates/ || true
           cp dist-electron/*.zip upload/updates/ || true
           cp dist-electron/*.blockmap upload/updates/ || true
@@ -91,7 +91,7 @@ jobs:
           path: upload/updates
 
   deploy:
-    name: Deploy Updates to Firebase
+    name: Deploy Updates
     runs-on: ubuntu-latest
     needs:
       - build-windows
@@ -113,8 +113,9 @@ jobs:
           name: mac-update-files
           path: dist-electron/updates
 
-      - name: Create update homepage
+      - name: Create homepage
         run: |
+          mkdir -p dist-electron
           cat > dist-electron/index.html <<'EOF'
           <!doctype html>
           <html>
@@ -138,8 +139,8 @@ jobs:
 
       - name: Deploy Firebase Hosting
         env:
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HARRY_BRUCE_GAMING_LTD }}
+          FIREBASE_SERVICE_ACCOUNT_HARRY_BRUCE_GAMING_LTD: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HARRY_BRUCE_GAMING_LTD }}
         run: |
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$HOME/firebase-service-account.json"
+          echo "$FIREBASE_SERVICE_ACCOUNT_HARRY_BRUCE_GAMING_LTD" > "$HOME/firebase-service-account.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$HOME/firebase-service-account.json"
           firebase deploy --only hosting:nabadminapp --project harry-bruce-gaming-ltd
