@@ -44,6 +44,17 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function calculateDiscountPrice(retailPrice, discountPercent, fallbackDiscountPrice = 0) {
+  const retail = toNumber(retailPrice, 0);
+  const percent = Math.min(Math.max(toNumber(discountPercent, 0), 0), 100);
+
+  if (retail > 0 && percent > 0) {
+    return Number((retail - retail * (percent / 100)).toFixed(2));
+  }
+
+  return toNumber(fallbackDiscountPrice, 0);
+}
+
 function toMillis(value) {
   if (!value) return 0;
   if (typeof value === "number") return value;
@@ -161,6 +172,16 @@ function normaliseProduct(doc) {
         data?.pricing?.discount,
         data?.discountPrice,
         data?.discount,
+        0
+      ),
+      0
+    ),
+    discountPercent: toNumber(
+      firstNonEmpty(
+        data?.pricing?.discountPercent,
+        data?.discountPercent,
+        data?.discount_percentage,
+        data?.discountPercentage,
         0
       ),
       0
@@ -471,6 +492,7 @@ function App() {
       netPrice: 0,
       retailPrice: 0,
       discountPrice: 0,
+      discountPercent: 0,
       categoryId: "",
       categoryName: "",
       resolvedCategoryName: "",
@@ -484,6 +506,7 @@ function App() {
       netPrice: "",
       retailPrice: "",
       discountPrice: "",
+      discountPercent: "",
       stock: "0",
       image: "",
       description: "",
@@ -501,6 +524,7 @@ function App() {
       netPrice: String(product.netPrice ?? ""),
       retailPrice: String(product.retailPrice ?? ""),
       discountPrice: String(product.discountPrice ?? ""),
+      discountPercent: String(product.discountPercent ?? ""),
       stock: String(product.stock ?? ""),
       image: product.image || "",
       description: product.description || "",
@@ -539,7 +563,15 @@ function App() {
       const imageValue = String(editForm.image || "").trim();
       const netValue = toNumber(editForm.netPrice, 0);
       const retailValue = toNumber(editForm.retailPrice, 0);
-      const discountValue = toNumber(editForm.discountPrice, 0);
+      const discountPercentValue = Math.min(
+        Math.max(toNumber(editForm.discountPercent, 0), 0),
+        100
+      );
+      const discountValue = calculateDiscountPrice(
+        retailValue,
+        discountPercentValue,
+        editForm.discountPrice
+      );
       const descriptionValue = String(editForm.description || "").trim();
 
       const payload = {
@@ -553,12 +585,14 @@ function App() {
         netPrice: netValue,
         retailPrice: retailValue,
         discountPrice: discountValue,
+        discountPercent: discountPercentValue,
         discount: discountValue,
         price: retailValue,
         pricing: {
           net: netValue,
           retail: retailValue,
           discount: discountValue,
+          discountPercent: discountPercentValue,
         },
         imageUrl: imageValue,
         image: imageValue,
@@ -753,6 +787,91 @@ function App() {
     currency: "GBP",
   }).format(stockValue);
 
+  const handleAddCategory = async (name) => {
+    if (!db || !user) {
+      throw new Error("Firebase not ready.");
+    }
+
+    const cleanName = String(name || "")
+      .trim()
+      .replace(/\s+/g, " ");
+
+    if (!cleanName) {
+      throw new Error("Category name is empty.");
+    }
+
+    const existingCategory = categories.find(
+      (category) =>
+        String(category?.name || "")
+          .trim()
+          .toLowerCase() === cleanName.toLowerCase()
+    );
+
+    if (existingCategory) {
+      setEditForm((current) => ({
+        ...current,
+        category: existingCategory.name,
+      }));
+      setToastMessage("Category already exists and is selected.");
+      return existingCategory;
+    }
+
+    const docId =
+      cleanName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") || `category-${Date.now()}`;
+
+    const newCategory = {
+      id: docId,
+      name: cleanName,
+      title: cleanName,
+      subtitle: "",
+      department: "Unassigned",
+      image: "",
+      products: 0,
+    };
+
+    await setDoc(
+      doc(db, "categories", docId),
+      {
+        name: cleanName,
+        title: cleanName,
+        department: "Unassigned",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: user.email || "Unknown",
+      },
+      { merge: true }
+    );
+
+    setCategories((current) => {
+      const alreadyInList = current.some(
+        (category) =>
+          String(category?.name || "")
+            .trim()
+            .toLowerCase() === cleanName.toLowerCase()
+      );
+
+      if (alreadyInList) return current;
+
+      return [...current, newCategory].sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || ""))
+      );
+    });
+
+    setEditForm((current) => ({
+      ...current,
+      category: cleanName,
+    }));
+
+    setActiveCategory(docId);
+    setActiveDepartment("Unassigned");
+    setToastMessage(`Category added: ${cleanName}`);
+
+    return newCategory;
+  };
+
   if (selectedProduct && editForm) {
     return (
       <ProductEditScreen
@@ -762,6 +881,7 @@ function App() {
         onChange={updateEditField}
         onBack={closeProductEditor}
         onSave={handleSaveProduct}
+        onAddCategory={handleAddCategory}
         saveLoading={saveLoading}
         categories={categories}
         primaryButtonStyle={primaryButtonStyle}
@@ -1265,6 +1385,17 @@ function App() {
                           </strong>
                         </div>
                       </div>
+
+                      {Number(product.discountPercent || 0) > 0 && (
+                        <div style={discountSummaryBoxStyle}>
+                          <span style={discountSummaryLabelStyle}>
+                            Auto Discount {Number(product.discountPercent || 0)}%
+                          </span>
+                          <strong style={discountSummaryValueStyle}>
+                            £{Number(product.discountPrice || 0).toFixed(2)}
+                          </strong>
+                        </div>
+                      )}
 
                       <div style={editProductHintStyle}>
                         Tap anywhere on the product to edit
@@ -1987,6 +2118,30 @@ const editProductButtonStyle = {
   padding: "12px 14px",
   fontWeight: 950,
   cursor: "pointer",
+};
+
+const discountSummaryBoxStyle = {
+  background: "#f5f3ff",
+  border: "1px solid #ddd6fe",
+  color: "#5b21b6",
+  borderRadius: 14,
+  padding: "12px 14px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const discountSummaryLabelStyle = {
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+};
+
+const discountSummaryValueStyle = {
+  fontSize: 16,
+  fontWeight: 950,
 };
 
 const editProductHintStyle = {

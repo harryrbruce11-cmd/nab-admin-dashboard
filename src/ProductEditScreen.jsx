@@ -1,11 +1,73 @@
 import React, { useMemo, useRef, useState } from "react";
 
+const LOCAL_CATEGORIES_KEY = "nab-admin-dashboard:product-categories";
+
+function cleanCategory(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function loadLocalCategories() {
+  try {
+    const raw = localStorage.getItem(LOCAL_CATEGORIES_KEY);
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed.map(cleanCategory).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalCategories(categories) {
+  try {
+    localStorage.setItem(
+      LOCAL_CATEGORIES_KEY,
+      JSON.stringify(Array.from(new Set(categories.map(cleanCategory).filter(Boolean))))
+    );
+  } catch {
+    // ignore
+  }
+}
+
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toMoney(value) {
+  const n = toNumber(value, 0);
+  return n.toFixed(2);
+}
+
+function clampPercent(value) {
+  const n = toNumber(value, 0);
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return n;
+}
+
+function calculateDiscountPrice(retailPrice, discountPercent) {
+  const retail = toNumber(retailPrice, 0);
+  const percent = clampPercent(discountPercent);
+  const discounted = retail - (retail * percent) / 100;
+  return Math.max(0, discounted).toFixed(2);
+}
+
+function calculateDiscountPercent(retailPrice, discountPrice) {
+  const retail = toNumber(retailPrice, 0);
+  const discounted = toNumber(discountPrice, 0);
+
+  if (retail <= 0) return "";
+
+  const percent = ((retail - discounted) / retail) * 100;
+  return String(Math.max(0, Math.min(100, percent)).toFixed(2)).replace(/\.00$/, "");
+}
+
 export default function ProductEditScreen({
   product,
   form,
   onChange,
   onBack,
   onSave,
+  onAddCategory,
   saveLoading = false,
   categories = [],
   primaryButtonStyle,
@@ -28,14 +90,53 @@ export default function ProductEditScreen({
   const safeProduct = product || {};
   const safeForm = form || {};
 
+  const retailPriceNumber = toNumber(safeForm.retailPrice, 0);
+  const discountPercentValue =
+    safeForm.discountPercent !== undefined && safeForm.discountPercent !== null
+      ? String(safeForm.discountPercent)
+      : calculateDiscountPercent(
+          safeForm.retailPrice,
+          safeForm.discountPrice || safeForm.discount
+        );
+
+  const autoDiscountPrice = calculateDiscountPrice(
+    safeForm.retailPrice,
+    discountPercentValue
+  );
+
+  const displayDiscountPrice =
+    safeForm.discountPrice !== undefined &&
+    safeForm.discountPrice !== null &&
+    String(safeForm.discountPrice).trim() !== ""
+      ? String(safeForm.discountPrice)
+      : autoDiscountPrice;
+
+  const savingAmount = Math.max(
+    0,
+    retailPriceNumber - toNumber(displayDiscountPrice, 0)
+  );
+
+  const [localCategories, setLocalCategories] = useState(() =>
+    loadLocalCategories()
+  );
+  const [categoryMessage, setCategoryMessage] = useState("");
+
   const categoryNames = useMemo(() => {
-    return Array.from(
-      new Set(categories.map((category) => category?.name).filter(Boolean))
-    ).sort((a, b) => a.localeCompare(b));
-  }, [categories]);
+    const fromProps = categories
+      .map((category) => {
+        if (typeof category === "string") return category;
+        return category?.name || category?.category || category?.title || "";
+      })
+      .map(cleanCategory)
+      .filter(Boolean);
+
+    return Array.from(new Set([...fromProps, ...localCategories]))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+  }, [categories, localCategories]);
 
   const filteredCategories = useMemo(() => {
-    const text = String(safeForm.category || "").trim().toLowerCase();
+    const text = cleanCategory(safeForm.category).toLowerCase();
 
     if (!text) return categoryNames;
 
@@ -43,6 +144,36 @@ export default function ProductEditScreen({
       String(name).toLowerCase().includes(text)
     );
   }, [categoryNames, safeForm.category]);
+
+  const handleRetailPriceChange = (value) => {
+    onChange("retailPrice", value);
+
+    if (String(discountPercentValue || "").trim() !== "") {
+      onChange("discountPrice", calculateDiscountPrice(value, discountPercentValue));
+    }
+  };
+
+  const handleDiscountPercentChange = (value) => {
+    const percent = value === "" ? "" : String(clampPercent(value));
+
+    onChange("discountPercent", percent);
+    onChange("discountPrice", calculateDiscountPrice(safeForm.retailPrice, percent));
+  };
+
+  const handleDiscountPriceChange = (value) => {
+    onChange("discountPrice", value);
+    onChange("discountPercent", calculateDiscountPercent(safeForm.retailPrice, value));
+  };
+
+  const handleUseAutoDiscount = () => {
+    onChange("discountPrice", autoDiscountPrice);
+    onChange("discountPercent", String(discountPercentValue || "0"));
+  };
+
+  const handleClearDiscount = () => {
+    onChange("discountPercent", "");
+    onChange("discountPrice", "");
+  };
 
   const handleChooseImage = () => {
     fileInputRef.current?.click();
@@ -53,11 +184,12 @@ export default function ProductEditScreen({
     if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = () => {
       onChange("image", typeof reader.result === "string" ? reader.result : "");
     };
-    reader.readAsDataURL(file);
 
+    reader.readAsDataURL(file);
     event.target.value = "";
   };
 
@@ -71,10 +203,42 @@ export default function ProductEditScreen({
     window.open(imageUrl, "_blank", "noopener,noreferrer");
   };
 
-  const handleAddCategory = () => {
-    const trimmed = String(safeForm.category || "").trim();
-    if (!trimmed) return;
+  const handleAddCategory = async () => {
+    const trimmed = cleanCategory(safeForm.category);
+
+    if (!trimmed) {
+      setCategoryMessage("Type a category name first.");
+      return;
+    }
+
+    const alreadyExists = categoryNames.some(
+      (name) => name.toLowerCase() === trimmed.toLowerCase()
+    );
+
     onChange("category", trimmed);
+
+    if (alreadyExists) {
+      setCategoryMessage("Category already exists and is selected.");
+      return;
+    }
+
+    const nextCategories = Array.from(new Set([...localCategories, trimmed]));
+
+    setLocalCategories(nextCategories);
+    saveLocalCategories(nextCategories);
+    setCategoryMessage("Category added and saved ✅");
+
+    if (typeof onAddCategory === "function") {
+      try {
+        await onAddCategory(trimmed);
+      } catch (error) {
+        setCategoryMessage(
+          `Category saved locally, but Firebase save failed: ${
+            error?.message || "Unknown error"
+          }`
+        );
+      }
+    }
   };
 
   const actionsDisabled = saveLoading;
@@ -86,14 +250,20 @@ export default function ProductEditScreen({
           <button onClick={onBack} style={secondaryButtonStyle}>
             ← Back to Products
           </button>
+
           <div>
             <p style={sectionEyebrowStyle}>Product Editor</p>
-            <strong style={{ fontSize: 18 }}>{safeProduct.name || "Product"}</strong>
+            <strong style={{ fontSize: 18 }}>
+              {safeProduct.name || "Product"}
+            </strong>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button style={secondaryButtonStyle}>Duplicate</button>
+          <button type="button" style={secondaryButtonStyle}>
+            Duplicate
+          </button>
+
           <button
             type="button"
             onClick={onSave}
@@ -110,7 +280,9 @@ export default function ProductEditScreen({
           <div style={editSectionHeaderStyle}>
             <div>
               <p style={sectionEyebrowStyle}>Edit Product</p>
-              <h2 style={{ margin: "6px 0 0", fontSize: 30 }}>Product Details</h2>
+              <h2 style={{ margin: "6px 0 0", fontSize: 30 }}>
+                Product Details
+              </h2>
             </div>
           </div>
 
@@ -169,25 +341,81 @@ export default function ProductEditScreen({
               <span style={fieldLabelStyle}>Retail Price</span>
               <input
                 value={safeForm.retailPrice || ""}
-                onChange={(event) => onChange("retailPrice", event.target.value)}
+                onChange={(event) => handleRetailPriceChange(event.target.value)}
                 style={editInputStyle}
                 placeholder="0.00"
               />
             </label>
+
+            <label style={fieldWrapStyle}>
+              <span style={fieldLabelStyle}>Discount % Auto</span>
+              <input
+                value={discountPercentValue}
+                onChange={(event) => handleDiscountPercentChange(event.target.value)}
+                style={editInputStyle}
+                placeholder="Example: 10"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+              />
+            </label>
+
             <label style={fieldWrapStyle}>
               <span style={fieldLabelStyle}>Discount Price</span>
               <input
-                value={safeForm.discountPrice || safeForm.discount || ""}
-                onChange={(event) => onChange("discountPrice", event.target.value)}
+                value={displayDiscountPrice}
+                onChange={(event) => handleDiscountPriceChange(event.target.value)}
                 style={editInputStyle}
                 placeholder="0.00"
+                type="number"
+                min="0"
+                step="0.01"
               />
             </label>
+
+            <div style={{ ...discountAutoBoxStyle, gridColumn: "1 / -1" }}>
+              <div>
+                <span style={discountAutoLabelStyle}>Auto Discount</span>
+                <strong style={discountAutoValueStyle}>
+                  Retail £{toMoney(safeForm.retailPrice)} → Discount £{toMoney(displayDiscountPrice)}
+                </strong>
+                <span style={discountAutoSmallStyle}>
+                  Saving £{toMoney(savingAmount)}
+                  {String(discountPercentValue || "").trim()
+                    ? ` · ${discountPercentValue}% off`
+                    : " · no discount percent set"}
+                </span>
+              </div>
+
+              <div style={discountAutoActionsStyle}>
+                <button
+                  type="button"
+                  onClick={handleUseAutoDiscount}
+                  style={miniPrimaryButtonStyle}
+                  disabled={actionsDisabled}
+                >
+                  Apply Auto
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClearDiscount}
+                  style={miniSecondaryButtonStyle}
+                  disabled={actionsDisabled}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
             <label style={{ ...fieldWrapStyle, gridColumn: "1 / -1" }}>
               <span style={fieldLabelStyle}>Product Description</span>
               <textarea
                 value={safeForm.description || ""}
-                onChange={(event) => onChange("description", event.target.value)}
+                onChange={(event) =>
+                  onChange("description", event.target.value)
+                }
                 style={editTextareaStyle}
                 placeholder="Enter product description"
                 rows={5}
@@ -198,44 +426,70 @@ export default function ProductEditScreen({
           <div style={{ ...fieldWrapStyle, marginTop: 18 }}>
             <div style={categoryHeaderRowStyle}>
               <span style={fieldLabelStyle}>Categories</span>
-              <span style={categoryCountStyle}>{filteredCategories.length} shown</span>
+              <span style={categoryCountStyle}>
+                {filteredCategories.length} shown
+              </span>
             </div>
 
             <div style={categoryInputRowStyle}>
               <input
                 value={safeForm.category || ""}
-                onChange={(event) => onChange("category", event.target.value)}
+                onChange={(event) => {
+                  onChange("category", event.target.value);
+                  setCategoryMessage("");
+                }}
                 style={editInputStyle}
-                placeholder="Search or select category..."
+                placeholder="Search or type new category..."
               />
+
               <button
                 type="button"
                 onClick={handleAddCategory}
                 style={primaryButtonStyle}
-                disabled={actionsDisabled || !String(safeForm.category || "").trim()}
+                disabled={
+                  actionsDisabled || !cleanCategory(safeForm.category)
+                }
               >
-                Add
+                + Add
               </button>
             </div>
+
+            {categoryMessage && (
+              <div style={categoryMessageStyle}>{categoryMessage}</div>
+            )}
 
             <div style={categoryResultsWrapStyle}>
               {filteredCategories.length > 0 ? (
                 filteredCategories.map((categoryName) => {
-                  const active = (safeForm.category || "") === categoryName;
+                  const active =
+                    cleanCategory(safeForm.category).toLowerCase() ===
+                    categoryName.toLowerCase();
+
                   return (
                     <button
                       key={categoryName}
                       type="button"
-                      onClick={() => onChange("category", categoryName)}
-                      style={active ? activeCategoryResultButtonStyle : categoryResultButtonStyle}
+                      onClick={() => {
+                        onChange("category", categoryName);
+                        setCategoryMessage("");
+                      }}
+                      style={
+                        active
+                          ? activeCategoryResultButtonStyle
+                          : categoryResultButtonStyle
+                      }
                     >
                       <span>{categoryName}</span>
-                      {active && <span style={selectedCategoryBadgeStyle}>Selected</span>}
+                      {active && (
+                        <span style={selectedCategoryBadgeStyle}>Selected</span>
+                      )}
                     </button>
                   );
                 })
               ) : (
-                <div style={categoryEmptyStyle}>No matching categories</div>
+                <div style={categoryEmptyStyle}>
+                  No matching categories. Press + Add to save it.
+                </div>
               )}
             </div>
           </div>
@@ -245,7 +499,9 @@ export default function ProductEditScreen({
           <div style={editSectionHeaderStyle}>
             <div>
               <p style={sectionEyebrowStyle}>Image Manager</p>
-              <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>Product Media</h2>
+              <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>
+                Product Media
+              </h2>
             </div>
           </div>
 
@@ -271,13 +527,30 @@ export default function ProductEditScreen({
             />
 
             <div style={imageManagerActionsStyle}>
-              <button type="button" onClick={handleChooseImage} style={primaryButtonStyle} disabled={actionsDisabled}>
+              <button
+                type="button"
+                onClick={handleChooseImage}
+                style={primaryButtonStyle}
+                disabled={actionsDisabled}
+              >
                 Upload Image
               </button>
-              <button type="button" onClick={handleOpenImage} style={secondaryButtonStyle} disabled={actionsDisabled}>
+
+              <button
+                type="button"
+                onClick={handleOpenImage}
+                style={secondaryButtonStyle}
+                disabled={actionsDisabled}
+              >
                 Show Image
               </button>
-              <button type="button" onClick={handleRemoveImage} style={dangerButtonStyle} disabled={actionsDisabled}>
+
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                style={dangerButtonStyle}
+                disabled={actionsDisabled}
+              >
                 Remove Image
               </button>
             </div>
@@ -286,20 +559,29 @@ export default function ProductEditScreen({
           <div style={editSectionHeaderStyle}>
             <div>
               <p style={sectionEyebrowStyle}>Live Preview</p>
-              <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>Preview Card</h2>
+              <h2 style={{ margin: "6px 0 0", fontSize: 24 }}>
+                Preview Card
+              </h2>
             </div>
           </div>
 
           <article style={productCardStyle}>
             <div style={productImageWrapStyle}>
-              <img
-                src={safeForm.image || safeProduct.image || ""}
-                alt={safeForm.name || safeProduct.name || "Product preview"}
-                style={productImageStyle}
-              />
+              {safeForm.image || safeProduct.image ? (
+                <img
+                  src={safeForm.image || safeProduct.image || ""}
+                  alt={safeForm.name || safeProduct.name || "Product preview"}
+                  style={productImageStyle}
+                />
+              ) : (
+                <div style={previewNoImageStyle}>No image</div>
+              )}
+
               <span
                 style={
-                  Number(safeForm.stock) === 0 ? outOfStockBadgeStyle : stockBadgeStyle
+                  Number(safeForm.stock) === 0
+                    ? outOfStockBadgeStyle
+                    : stockBadgeStyle
                 }
               >
                 {Number(safeForm.stock) === 0
@@ -310,16 +592,33 @@ export default function ProductEditScreen({
 
             <div style={{ padding: 16, display: "grid", gap: 12 }}>
               <div>
-                <p style={productCategoryStyle}>{safeForm.category || "Uncategorised"}</p>
+                <p style={productCategoryStyle}>
+                  {safeForm.category || "Uncategorised"}
+                </p>
+
                 <h3 style={{ margin: "6px 0 0", fontSize: 18 }}>
                   {safeForm.name || "Untitled Product"}
                 </h3>
-                <div style={{ margin: "5px 0 0", color: "#64748b", fontSize: 13, display: "grid", gap: 4 }}>
+
+                <div
+                  style={{
+                    margin: "5px 0 0",
+                    color: "#64748b",
+                    fontSize: 13,
+                    display: "grid",
+                    gap: 4,
+                  }}
+                >
                   <span>SKU: {safeForm.sku || safeProduct.sku || "-"}</span>
-                  <span>Barcode: {safeForm.barcode || safeProduct.barcode || "-"}</span>
+                  <span>
+                    Barcode: {safeForm.barcode || safeProduct.barcode || "-"}
+                  </span>
                 </div>
+
                 <p style={previewDescriptionStyle}>
-                  {safeForm.description || safeProduct.description || "No description added yet."}
+                  {safeForm.description ||
+                    safeProduct.description ||
+                    "No description added yet."}
                 </p>
               </div>
 
@@ -330,8 +629,11 @@ export default function ProductEditScreen({
                     £{Number(safeForm.netPrice || 0).toFixed(2)}
                   </strong>
                 </div>
+
                 <div style={retailPriceBoxStyle}>
-                  <span style={{ ...priceLabelStyle, color: "#2563eb" }}>Retail</span>
+                  <span style={{ ...priceLabelStyle, color: "#2563eb" }}>
+                    Retail
+                  </span>
                   <strong style={{ ...priceValueStyle, color: "#1d4ed8" }}>
                     £{Number(safeForm.retailPrice || 0).toFixed(2)}
                   </strong>
@@ -339,9 +641,12 @@ export default function ProductEditScreen({
               </div>
 
               <div style={discountPriceBoxStyle}>
-                <span style={{ ...priceLabelStyle, color: "#7c3aed" }}>Discount</span>
+                <span style={{ ...priceLabelStyle, color: "#7c3aed" }}>
+                  Discount
+                </span>
                 <strong style={{ ...priceValueStyle, color: "#6d28d9" }}>
-                  £{Number(safeForm.discountPrice || safeForm.discount || 0).toFixed(2)}
+                  £
+{Number(displayDiscountPrice || 0).toFixed(2)}
                 </strong>
               </div>
             </div>
@@ -460,6 +765,16 @@ const categoryInputRowStyle = {
   alignItems: "center",
 };
 
+const categoryMessageStyle = {
+  background: "#eff6ff",
+  border: "1px solid #bfdbfe",
+  color: "#1d4ed8",
+  borderRadius: 12,
+  padding: "10px 12px",
+  fontSize: 13,
+  fontWeight: 800,
+};
+
 const imageManagerCardStyle = {
   display: "grid",
   gap: 14,
@@ -512,7 +827,6 @@ const categoryCountStyle = {
   fontWeight: 800,
 };
 
-
 const categoryResultsWrapStyle = {
   display: "grid",
   gap: 8,
@@ -562,6 +876,69 @@ const categoryEmptyStyle = {
   padding: 10,
 };
 
+const discountAutoBoxStyle = {
+  background: "linear-gradient(135deg, #f5f3ff 0%, #eff6ff 100%)",
+  border: "1px solid #ddd6fe",
+  borderRadius: 16,
+  padding: 14,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 14,
+};
+
+const discountAutoLabelStyle = {
+  display: "block",
+  color: "#7c3aed",
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: 0.8,
+};
+
+const discountAutoValueStyle = {
+  display: "block",
+  marginTop: 5,
+  color: "#111827",
+  fontSize: 16,
+  fontWeight: 950,
+};
+
+const discountAutoSmallStyle = {
+  display: "block",
+  marginTop: 5,
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 850,
+};
+
+const discountAutoActionsStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+};
+
+const miniPrimaryButtonStyle = {
+  border: "1px solid #7c3aed",
+  background: "#7c3aed",
+  color: "white",
+  borderRadius: 12,
+  padding: "10px 12px",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
+const miniSecondaryButtonStyle = {
+  border: "1px solid #cbd5e1",
+  background: "white",
+  color: "#111827",
+  borderRadius: 12,
+  padding: "10px 12px",
+  fontWeight: 950,
+  cursor: "pointer",
+};
+
 const discountPriceBoxStyle = {
   background: "#f5f3ff",
   border: "1px solid #ddd6fe",
@@ -575,6 +952,17 @@ const previewDescriptionStyle = {
   fontSize: 13,
   lineHeight: 1.55,
 };
+
+const previewNoImageStyle = {
+  width: "100%",
+  minHeight: 180,
+  display: "grid",
+  placeItems: "center",
+  color: "#64748b",
+  fontWeight: 900,
+  background: "#f8fafc",
+};
+
 const dangerButtonStyle = {
   border: "1px solid #fecaca",
   background: "#fff1f2",

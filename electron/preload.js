@@ -12,3 +12,8 @@ contextBridge.exposeInMainWorld("electronUpdater", {
     ipcRenderer.on("update-message", (_event, message) => callback(message));
   },
 });
+
+contextBridge.exposeInMainWorld("electronPrint", {
+  getPrinters: () => ipcRenderer.invoke("print:get-printers"),
+  printHtml: (payload) => ipcRenderer.invoke("print:html", payload),
+});

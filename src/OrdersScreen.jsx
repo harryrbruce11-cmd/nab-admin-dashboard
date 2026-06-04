@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import OrderPrintPreviewScreen from "./OrderPrintPreviewScreen";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -132,6 +133,7 @@ export default function OrdersScreen({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [printPreviewOrder, setPrintPreviewOrder] = useState(null);
   const [statusSaving, setStatusSaving] = useState(false);
 
   useEffect(() => {
@@ -242,12 +244,22 @@ export default function OrdersScreen({ onBack }) {
     }
   };
 
+  if (printPreviewOrder) {
+    return (
+      <OrderPrintPreviewScreen
+        order={printPreviewOrder}
+        onBack={() => setPrintPreviewOrder(null)}
+      />
+    );
+  }
+
   if (selectedOrder) {
     return (
       <OrderDetailScreen
         order={selectedOrder}
         onBack={() => setSelectedOrder(null)}
         onSaveStatus={handleSaveOrderStatus}
+        onOpenPrintPreview={() => setPrintPreviewOrder(selectedOrder)}
         statusSaving={statusSaving}
       />
     );
@@ -354,7 +366,7 @@ export default function OrdersScreen({ onBack }) {
   );
 }
 
-function OrderDetailScreen({ order, onBack, onSaveStatus, statusSaving }) {
+function OrderDetailScreen({ order, onBack, onSaveStatus, onOpenPrintPreview, statusSaving }) {
   const itemCount = Array.isArray(order?.items) ? order.items.length : 0;
   const [selectedStatus, setSelectedStatus] = useState(order?.status || "processing");
 
@@ -402,15 +414,13 @@ function OrderDetailScreen({ order, onBack, onSaveStatus, statusSaving }) {
                 {statusSaving ? "Saving..." : "Save Status"}
               </button>
             </div>
-            {order.pdfUrl ? (
-              <button
-                type="button"
-                style={openPdfButtonStyle}
-                onClick={() => window.open(order.pdfUrl, "_blank", "noopener,noreferrer")}
-              >
-                Open PDF
-              </button>
-            ) : null}
+            <button
+              type="button"
+              style={printPreviewButtonStyle}
+              onClick={() => onOpenPrintPreview?.(order)}
+            >
+              Print Preview
+            </button>
           </div>
         </div>
       </div>
@@ -950,7 +960,7 @@ const stockTrailArrowStyle = {
   fontWeight: 900,
 };
 
-const openPdfButtonStyle = {
+const printPreviewButtonStyle = {
   border: "1px solid #dbe3ef",
   background: "white",
   color: "#111827",

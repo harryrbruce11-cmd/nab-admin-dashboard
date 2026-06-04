@@ -17,7 +17,12 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Send update
 
-
+ npm run dev
 
 npm version patch
-git push origin main --tags
+git status
+git add .
+git commit -m "Add auto discount and category save fixes"
+npm version patch
+git push origin main --follow-tags
+npm run release
