@@ -244,6 +244,10 @@ function App() {
 
   const version = appVersion;
 
+  const isMac =
+    navigator.platform.toLowerCase().includes("mac") ||
+    navigator.userAgent.toLowerCase().includes("mac");
+
   useEffect(() => {
     if (!toastMessage) return;
 
@@ -1040,9 +1044,22 @@ function App() {
           </button>
 
           {updateReady ? (
+            isMac ? (
+              <button
+                style={secondaryButtonStyle}
+                onClick={() =>
+                  setToastMessage(
+                    "Mac update downloaded. Install the DMG manually until code signing is configured."
+                  )
+                }
+              >
+                Update Downloaded
+              </button>
+            ) : (
             <button onClick={handleInstallUpdate} style={installUpdateButtonStyle}>
               Update Ready — Install
             </button>
+            )
           ) : (
             <button onClick={handleCheckForUpdates} style={secondaryButtonStyle}>
               {updateDownloading ? "Checking / Downloading..." : "Check Updates"}
@@ -1171,7 +1188,7 @@ function App() {
             {updateMessage}
             {updateReady ? " Install the downloaded Firebase update when ready." : ""}
           </span>
-          {updateReady && (
+          {updateReady && !isMac && (
             <button onClick={handleInstallUpdate} style={installUpdateButtonStyleLight}>
               Install Now
             </button>
