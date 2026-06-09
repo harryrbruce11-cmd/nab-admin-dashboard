@@ -44,20 +44,20 @@ function clampPercent(value) {
   return n;
 }
 
-function calculateDiscountPrice(retailPrice, discountPercent) {
-  const retail = toNumber(retailPrice, 0);
+function calculateDiscountPrice(netPrice, discountPercent) {
+  const net = toNumber(netPrice, 0);
   const percent = clampPercent(discountPercent);
-  const discounted = retail - (retail * percent) / 100;
+  const discounted = net - (net * percent) / 100;
   return Math.max(0, discounted).toFixed(2);
 }
 
-function calculateDiscountPercent(retailPrice, discountPrice) {
-  const retail = toNumber(retailPrice, 0);
+function calculateDiscountPercent(netPrice, discountPrice) {
+  const net = toNumber(netPrice, 0);
   const discounted = toNumber(discountPrice, 0);
 
-  if (retail <= 0) return "";
+  if (net <= 0) return "";
 
-  const percent = ((retail - discounted) / retail) * 100;
+  const percent = ((net - discounted) / net) * 100;
   return String(Math.max(0, Math.min(100, percent)).toFixed(2)).replace(/\.00$/, "");
 }
 
@@ -95,26 +95,11 @@ export default function ProductEditScreen({
     safeForm.discountPercent !== undefined && safeForm.discountPercent !== null
       ? String(safeForm.discountPercent)
       : calculateDiscountPercent(
-          safeForm.retailPrice,
+          safeForm.netPrice,
           safeForm.discountPrice || safeForm.discount
         );
 
-  const autoDiscountPrice = calculateDiscountPrice(
-    safeForm.retailPrice,
-    discountPercentValue
-  );
-
-  const displayDiscountPrice =
-    safeForm.discountPrice !== undefined &&
-    safeForm.discountPrice !== null &&
-    String(safeForm.discountPrice).trim() !== ""
-      ? String(safeForm.discountPrice)
-      : autoDiscountPrice;
-
-  const savingAmount = Math.max(
-    0,
-    retailPriceNumber - toNumber(displayDiscountPrice, 0)
-  );
+  const displayDiscountPrice = safeForm.discountPrice || "";
 
   const [localCategories, setLocalCategories] = useState(() =>
     loadLocalCategories()
@@ -147,32 +132,16 @@ export default function ProductEditScreen({
 
   const handleRetailPriceChange = (value) => {
     onChange("retailPrice", value);
-
-    if (String(discountPercentValue || "").trim() !== "") {
-      onChange("discountPrice", calculateDiscountPrice(value, discountPercentValue));
-    }
   };
 
   const handleDiscountPercentChange = (value) => {
     const percent = value === "" ? "" : String(clampPercent(value));
-
     onChange("discountPercent", percent);
-    onChange("discountPrice", calculateDiscountPrice(safeForm.retailPrice, percent));
   };
 
   const handleDiscountPriceChange = (value) => {
     onChange("discountPrice", value);
     onChange("discountPercent", calculateDiscountPercent(safeForm.retailPrice, value));
-  };
-
-  const handleUseAutoDiscount = () => {
-    onChange("discountPrice", autoDiscountPrice);
-    onChange("discountPercent", String(discountPercentValue || "0"));
-  };
-
-  const handleClearDiscount = () => {
-    onChange("discountPercent", "");
-    onChange("discountPrice", "");
   };
 
   const handleChooseImage = () => {
@@ -348,7 +317,7 @@ export default function ProductEditScreen({
             </label>
 
             <label style={fieldWrapStyle}>
-              <span style={fieldLabelStyle}>Discount % Auto</span>
+              <span style={fieldLabelStyle}>Discount %</span>
               <input
                 value={discountPercentValue}
                 onChange={(event) => handleDiscountPercentChange(event.target.value)}
@@ -374,40 +343,6 @@ export default function ProductEditScreen({
               />
             </label>
 
-            <div style={{ ...discountAutoBoxStyle, gridColumn: "1 / -1" }}>
-              <div>
-                <span style={discountAutoLabelStyle}>Auto Discount</span>
-                <strong style={discountAutoValueStyle}>
-                  Retail £{toMoney(safeForm.retailPrice)} → Discount £{toMoney(displayDiscountPrice)}
-                </strong>
-                <span style={discountAutoSmallStyle}>
-                  Saving £{toMoney(savingAmount)}
-                  {String(discountPercentValue || "").trim()
-                    ? ` · ${discountPercentValue}% off`
-                    : " · no discount percent set"}
-                </span>
-              </div>
-
-              <div style={discountAutoActionsStyle}>
-                <button
-                  type="button"
-                  onClick={handleUseAutoDiscount}
-                  style={miniPrimaryButtonStyle}
-                  disabled={actionsDisabled}
-                >
-                  Apply Auto
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleClearDiscount}
-                  style={miniSecondaryButtonStyle}
-                  disabled={actionsDisabled}
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
 
             <label style={{ ...fieldWrapStyle, gridColumn: "1 / -1" }}>
               <span style={fieldLabelStyle}>Product Description</span>

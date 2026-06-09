@@ -44,16 +44,6 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function calculateDiscountPrice(retailPrice, discountPercent, fallbackDiscountPrice = 0) {
-  const retail = toNumber(retailPrice, 0);
-  const percent = Math.min(Math.max(toNumber(discountPercent, 0), 0), 100);
-
-  if (retail > 0 && percent > 0) {
-    return Number((retail - retail * (percent / 100)).toFixed(2));
-  }
-
-  return toNumber(fallbackDiscountPrice, 0);
-}
 
 function toMillis(value) {
   if (!value) return 0;
@@ -509,7 +499,7 @@ function App() {
       category: "",
       netPrice: "",
       retailPrice: "",
-      discountPrice: "",
+      discountPrice: 0,
       discountPercent: "",
       stock: "0",
       image: "",
@@ -571,10 +561,8 @@ function App() {
         Math.max(toNumber(editForm.discountPercent, 0), 0),
         100
       );
-      const discountValue = calculateDiscountPrice(
-        retailValue,
-        discountPercentValue,
-        editForm.discountPrice
+      const discountValue = Number(
+        (retailValue - retailValue * (discountPercentValue / 100)).toFixed(2)
       );
       const descriptionValue = String(editForm.description || "").trim();
 
@@ -590,8 +578,8 @@ function App() {
         retailPrice: retailValue,
         discountPrice: discountValue,
         discountPercent: discountPercentValue,
-        discount: discountValue,
         price: retailValue,
+        discount: discountValue,
         pricing: {
           net: netValue,
           retail: retailValue,
@@ -1406,7 +1394,7 @@ function App() {
                       {Number(product.discountPercent || 0) > 0 && (
                         <div style={discountSummaryBoxStyle}>
                           <span style={discountSummaryLabelStyle}>
-                            Auto Discount {Number(product.discountPercent || 0)}%
+                            Discount {Number(product.discountPercent || 0)}%
                           </span>
                           <strong style={discountSummaryValueStyle}>
                             £{Number(product.discountPrice || 0).toFixed(2)}
