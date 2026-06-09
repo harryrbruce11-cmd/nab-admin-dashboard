@@ -1,7 +1,7 @@
 {
   "name": "nab-admin-dashboard",
   "productName": "NAB Admin Dashboard",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "private": true,
   "description": "NAB Admin Dashboard desktop app",
   "author": "Harry Bruce",
