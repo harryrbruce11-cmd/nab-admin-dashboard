@@ -36,7 +36,9 @@ function createWindow() {
   if (devUrl) {
     mainWindow.loadURL(devUrl);
   } else {
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+    mainWindow.loadFile(
+      path.join(__dirname, "../dist/index.html")
+    );
   }
 
   mainWindow.once("ready-to-show", () => {
@@ -47,21 +49,6 @@ function createWindow() {
     mainWindow = null;
   });
 }
-  const devUrl = process.env.ELECTRON_START_URL;
-
-  if (devUrl) {
-    mainWindow.loadURL(devUrl);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
-  }
-
-  mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-  });
-
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-  });
 
 
 function configureAutoUpdater() {
