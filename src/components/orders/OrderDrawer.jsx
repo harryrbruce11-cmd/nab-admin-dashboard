@@ -8,7 +8,7 @@ export default function OrderDrawer({
 }) {
   if (!order) return null;
 
-  const items = Array.isArray(order.items)
+  const items = Array.isArray(order?.items)
     ? order.items
     : [];
 
@@ -19,7 +19,7 @@ export default function OrderDrawer({
           style={styles.closeButton}
           onClick={onClose}
         >
-          ×
+          ✕ Close
         </button>
 
         <h2 style={styles.title}>
@@ -53,23 +53,24 @@ export default function OrderDrawer({
 
           <div style={styles.row}>
             <strong>Status</strong>
-            <span>{order.processingStatus || order.status || "-"}</span>
+            <span>
+              {order.processingStatus ||
+                order.status ||
+                "-"}
+            </span>
           </div>
 
           <div style={styles.row}>
             <strong>Delivery</strong>
-            <span>{order.deliveryStatus || "-"}</span>
+            <span>
+              {order.deliveryStatus || "-"}
+            </span>
           </div>
 
           <div style={styles.row}>
             <strong>Product Status</strong>
-            <span>{order.productStatus || "-"}</span>
-          </div>
-
-          <div style={styles.row}>
-            <strong>PDF URL</strong>
-            <span style={styles.url}>
-              {order.pdfUrl || "-"}
+            <span>
+              {order.productStatus || "-"}
             </span>
           </div>
 
@@ -115,18 +116,17 @@ export default function OrderDrawer({
           <h3>Order Processing</h3>
 
           <div style={styles.row}>
-            <strong>Reason</strong>
-            <span>{order.reason || "-"}</span>
-          </div>
-
-          <div style={styles.row}>
             <strong>PDF Available</strong>
-            <span>{order.pdfUrl ? "Yes" : "No"}</span>
+            <span>
+              {order.pdfUrl ? "Yes" : "No"}
+            </span>
           </div>
 
           <div style={styles.row}>
             <strong>PDF URL</strong>
-            <span style={styles.url}>{order.pdfUrl || "-"}</span>
+            <span style={styles.url}>
+              {order.pdfUrl || "-"}
+            </span>
           </div>
         </div>
 
@@ -143,8 +143,7 @@ const styles = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background:
-      "rgba(0,0,0,.7)",
+    background: "rgba(0,0,0,.7)",
     zIndex: 9999,
     display: "flex",
     justifyContent: "flex-end",
@@ -165,10 +164,9 @@ const styles = {
     border: 0,
     color: "white",
     borderRadius: 12,
-    width: 40,
-    height: 40,
+    padding: "10px 16px",
     cursor: "pointer",
-    float: "right",
+    marginBottom: 16,
   },
 
   title: {
@@ -215,3 +213,4 @@ const styles = {
     fontSize: 12,
   },
 };
+

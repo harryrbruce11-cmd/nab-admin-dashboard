@@ -3,28 +3,64 @@ import { doc, updateDoc } from "firebase/firestore";
 
 export default function PrintingWorkflow({ order, db }) {
   const [printers, setPrinters] = useState([]);
-  const [selectedPrinter, setSelectedPrinter] = useState("");
+  const [selectedPrinterName, setSelectedPrinterName] = useState("");
+  const [selectedPrinterLabel, setSelectedPrinterLabel] = useState("Loading...");
+  const [printerDeviceStatus, setPrinterDeviceStatus] = useState("Unknown");
+
   const [printerStatus, setPrinterStatus] = useState("Ready");
   const [printing, setPrinting] = useState(false);
 
-  // Load local printers if Electron is available
   useEffect(() => {
     async function loadPrinters() {
       try {
-        if (window.electronAPI?.getPrinters) {
-          const list = await window.electronAPI.getPrinters();
-          setPrinters(list || []);
-          if (list && list.length > 0) {
-            setSelectedPrinter(list[0].name || list[0]);
-          }
+        if (!window.electronPrint?.getPrinters) {
+          setPrinters([]);
+          setSelectedPrinterLabel("Printer API Missing");
+          setPrinterDeviceStatus("Offline");
+          return;
         }
-      } catch {
+
+        const list = await window.electronPrint.getPrinters();
+        setPrinters(list || []);
+
+        const savedPrinter = localStorage.getItem("nab_selected_printer");
+
+        const pickedPrinter =
+          list.find((p) => p.name === savedPrinter) ||
+          list.find((p) => p.isDefault) ||
+          list[0];
+
+        if (!pickedPrinter) {
+          setSelectedPrinterName("");
+          setSelectedPrinterLabel("No Printer Found");
+          setPrinterDeviceStatus("Offline");
+          return;
+        }
+
+        setSelectedPrinterName(pickedPrinter.name);
+        setSelectedPrinterLabel(pickedPrinter.displayName || pickedPrinter.name);
+        setPrinterDeviceStatus(pickedPrinter.status || "Ready");
+      } catch (error) {
+        console.error("Printer load error:", error);
         setPrinters([]);
+        setSelectedPrinterName("");
+        setSelectedPrinterLabel("No Printer Found");
+        setPrinterDeviceStatus("Offline");
       }
     }
 
     loadPrinters();
   }, []);
+
+  function handlePrinterChange(value) {
+    const pickedPrinter = printers.find((p) => p.name === value);
+
+    setSelectedPrinterName(value);
+    setSelectedPrinterLabel(pickedPrinter?.displayName || pickedPrinter?.name || value);
+    setPrinterDeviceStatus(pickedPrinter?.status || "Ready");
+
+    localStorage.setItem("nab_selected_printer", value);
+  }
 
   async function markCompleted() {
     if (!db || !order?.id) return;
@@ -33,117 +69,178 @@ export default function PrintingWorkflow({ order, db }) {
       status: "Completed",
       processingStatus: "Completed",
       productStatus: "Completed",
-      selectedPrinter: selectedPrinter || "",
       printedAt: new Date(),
+      selectedPrinter: selectedPrinterLabel,
+      selectedPrinterDeviceName: selectedPrinterName,
     });
   }
 
   async function handlePrint() {
-    if (!order?.pdfUrl) return;
+    if (!order?.pdfUrl) {
+      setPrinterStatus("No PDF Found");
+      return;
+    }
+
+    if (!window.electronPrint?.printPdf) {
+      setPrinterStatus("Print Service Missing");
+      return;
+    }
+
+    if (!selectedPrinterName) {
+      setPrinterStatus("Pick a printer first");
+      return;
+    }
 
     setPrinting(true);
-    setPrinterStatus("Printing...");
 
     try {
-      // If running inside Electron, use native printing
-      if (window.electronAPI?.printPDF) {
-        const result = await window.electronAPI.printPDF({
-          url: order.pdfUrl,
-          printerName: selectedPrinter,
-        });
+      const pdfUrl = String(order.pdfUrl || "").trim();
 
-        if (result?.success) {
-          await markCompleted();
-          setPrinterStatus("Printed Successfully");
-        } else {
-          setPrinterStatus("Print Failed");
-        }
-      } else {
-        // Fallback (browser dev mode)
-        const win = window.open(order.pdfUrl, "_blank");
+      console.log("Original PDF URL:", pdfUrl);
+      console.log("Selected printer device name:", selectedPrinterName);
 
-        if (win) {
-          const checkClosed = setInterval(async () => {
-            if (win.closed) {
-              clearInterval(checkClosed);
-              await markCompleted();
-              setPrinterStatus("Printed Successfully");
-              setPrinting(false);
-            }
-          }, 500);
-        }
+      if (pdfUrl.startsWith("gs://")) {
+        throw new Error("PDF is a gs:// link. Save the Firebase HTTPS download URL.");
       }
-    } catch {
-      setPrinterStatus("Print Failed");
+
+      if (!pdfUrl.startsWith("https://")) {
+        throw new Error("Invalid PDF URL. It must start with https://");
+      }
+
+      setPrinterStatus("Checking PDF...");
+
+      const response = await fetch(pdfUrl);
+
+      if (!response.ok) {
+        throw new Error(`Unable to download PDF (${response.status})`);
+      }
+
+      setPrinterStatus("Sending to Printer...");
+
+      const result = await window.electronPrint.printPdf({
+        pdfUrl,
+        deviceName: selectedPrinterName,
+      });
+
+      console.log("Print Result:", result);
+
+      if (!result?.ok) {
+        throw new Error(result?.message || "Print Failed");
+      }
+
+      await markCompleted();
+
+      setPrinterStatus("Printed Successfully");
+
+      setTimeout(() => {
+        setPrinterStatus("Ready");
+      }, 5000);
+    } catch (error) {
+      console.error("Print error:", error);
+      setPrinterStatus(error?.message || "Print Failed");
     } finally {
-      if (!(window.electronAPI?.printPDF)) {
-        // Do not set printing to false here because it's handled in the interval
-      } else {
-        setPrinting(false);
-      }
+      setPrinting(false);
     }
   }
 
+  const badgeColor =
+    printerStatus === "Printed Successfully"
+      ? "#22c55e"
+      : printerStatus.includes("Failed") ||
+        printerStatus.includes("Missing") ||
+        printerStatus.includes("Invalid") ||
+        printerStatus.includes("No ") ||
+        printerStatus.includes("Pick")
+      ? "#ef4444"
+      : printerStatus === "Ready"
+      ? "#38bdf8"
+      : "#facc15";
+
   return (
     <div style={styles.card}>
-      <h3 style={styles.title}>Printing</h3>
+      <div style={styles.header}>
+        <div>
+          <div style={styles.label}>NAB ADMIN DASHBOARD</div>
+          <h3 style={styles.title}>Order Printing</h3>
+        </div>
 
-      <div style={styles.row}>
-        <strong>Status</strong>
-        <span
-          style={{
-            ...styles.status,
-            color:
-              printerStatus === "Printed Successfully"
-                ? "#22c55e"
-                : printerStatus === "Print Failed"
-                ? "#ef4444"
-                : "#facc15",
-          }}
-        >
+        <div style={{ ...styles.badge, background: badgeColor }}>
           {printerStatus}
-        </span>
+        </div>
       </div>
 
-      {printers.length > 0 && (
+      <div style={styles.infoBox}>
         <div style={styles.row}>
-          <strong>Printer</strong>
+          <span>Order Ref</span>
+          <strong>{order?.orderRef || "-"}</strong>
+        </div>
+
+        <div style={styles.row}>
+          <span>Customer</span>
+          <strong>{order?.customer || "-"}</strong>
+        </div>
+
+        <div style={styles.row}>
+          <span>User</span>
+          <strong>{order?.user || "-"}</strong>
+        </div>
+
+        <div style={styles.row}>
+          <span>Status</span>
+          <strong>{order?.status || "-"}</strong>
+        </div>
+
+        <div style={styles.row}>
+          <span>Printer</span>
+
           <select
-            value={selectedPrinter}
-            onChange={(e) => setSelectedPrinter(e.target.value)}
+            value={selectedPrinterName}
+            onChange={(e) => handlePrinterChange(e.target.value)}
             style={styles.select}
+            disabled={printing || printers.length === 0}
           >
-            {printers.map((printer, i) => (
-              <option key={i} value={printer.name || printer}>
-                {printer.name || printer}
-              </option>
-            ))}
+            {printers.length === 0 ? (
+              <option value="">No printer found</option>
+            ) : (
+              printers.map((printer) => (
+                <option key={printer.name} value={printer.name}>
+                  {printer.displayName || printer.name}
+                  {printer.isDefault ? " - Default" : ""}
+                </option>
+              ))
+            )}
           </select>
         </div>
-      )}
+
+        <div style={styles.row}>
+          <span>Printer Device Name</span>
+          <strong>{selectedPrinterName || "-"}</strong>
+        </div>
+
+        <div style={styles.row}>
+          <span>Printer Status</span>
+          <strong>{printerDeviceStatus}</strong>
+        </div>
+
+        <div style={styles.urlRow}>
+          <span>PDF URL</span>
+          <strong>{order?.pdfUrl ? "Ready" : "Missing"}</strong>
+        </div>
+      </div>
 
       <button
-        style={styles.printButton}
         onClick={handlePrint}
-        disabled={!order?.pdfUrl || printing}
+        disabled={printing || !order?.pdfUrl || !selectedPrinterName}
+        style={{
+          ...styles.button,
+          opacity: printing || !order?.pdfUrl || !selectedPrinterName ? 0.7 : 1,
+        }}
       >
-        {printing ? "Printing..." : "Print Order"}
+        {printing ? "Printing..." : "🖨 Print Order"}
       </button>
 
-      <div style={styles.helperBox}>
-        <strong>Printing Instructions:</strong>
-        <div style={{ marginTop: 6 }}>
-          1. Press <b>Print Order</b>.
-        </div>
-        <div>
-          2. Select your local printer.
-        </div>
-        <div>
-          3. After printing, close the PDF window.
-        </div>
-        <div>
-          The order will automatically update to <b>Completed</b> once the print window closes.
-        </div>
+      <div style={styles.footer}>
+        Printing updates the order automatically when successful.
       </div>
     </div>
   );
@@ -152,56 +249,89 @@ export default function PrintingWorkflow({ order, db }) {
 const styles = {
   card: {
     background: "#0f172a",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 18,
+    padding: 20,
+    marginTop: 16,
+  },
+
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    gap: 12,
+  },
+
+  label: {
+    color: "#facc15",
+    fontWeight: 900,
+    fontSize: 11,
+    letterSpacing: 1,
   },
 
   title: {
-    marginTop: 0,
+    color: "#fff",
+    marginTop: 6,
+  },
+
+  badge: {
+    color: "#111827",
+    padding: "10px 14px",
+    borderRadius: 999,
+    fontWeight: 900,
+    textAlign: "center",
+  },
+
+  infoBox: {
+    background: "#1e293b",
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 16,
-    color: "#facc15",
   },
 
   row: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
-    gap: 12,
+    gap: 14,
+    marginBottom: 10,
+    color: "#cbd5e1",
   },
 
-  status: {
-    fontWeight: 800,
+  urlRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 14,
+    color: "#cbd5e1",
   },
 
   select: {
-    background: "#1e293b",
-    color: "white",
+    background: "#0f172a",
+    color: "#fff",
     border: "1px solid #334155",
-    borderRadius: 12,
-    padding: "8px 12px",
+    borderRadius: 10,
+    padding: "10px 12px",
+    minWidth: 260,
+    fontWeight: 800,
   },
 
-  printButton: {
+  button: {
     width: "100%",
     background: "#facc15",
     color: "#111827",
     border: 0,
     borderRadius: 12,
-    padding: "12px 16px",
+    padding: 14,
     fontWeight: 900,
+    fontSize: 16,
     cursor: "pointer",
   },
 
-  helperBox: {
-    marginTop: 16,
-    background: "#1e293b",
-    border: "1px solid #334155",
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 13,
-    color: "#cbd5e1",
-    lineHeight: 1.5,
+  footer: {
+    marginTop: 12,
+    textAlign: "center",
+    color: "#94a3b8",
+    fontSize: 12,
   },
 };

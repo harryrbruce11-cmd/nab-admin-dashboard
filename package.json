@@ -27,7 +27,9 @@
     "@vitejs/plugin-react": "latest",
     "electron-updater": "^6.8.3",
     "firebase": "^12.13.0",
+    "node-fetch": "^2.7.0",
     "nodemailer": "^8.0.8",
+    "pdf-to-printer": "^5.8.0",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "latest",
@@ -59,10 +61,11 @@
         "url": "https://nabadminapp.web.app/updates"
       }
     ],
-    "win": {
-      "target": "nsis",
-      "artifactName": "${productName} Setup ${version}.${ext}"
-    },
+   "win": {
+  "target": "nsis",
+  "icon": "electron/assets/CellBlockStores_Icon.ico",
+  "artifactName": "${productName} Setup ${version}.${ext}"
+},
     "mac": {
       "target": [
         "dmg",
