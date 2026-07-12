@@ -34,7 +34,9 @@ import {
   vehicleCheckDb,
 } from "../firebase";
 
-const DEFAULT_ALLOWANCE = 28;
+const DEFAULT_ALLOWANCE = 20;
+const EARLIEST_HOLIDAY_YEAR = 2025;
+const LATEST_HOLIDAY_YEAR = new Date().getFullYear() + 1;
 
 export default function HolidayRequestDialog({
   open,
@@ -64,6 +66,12 @@ export default function HolidayRequestDialog({
 
   const [lastDayOff, setLastDayOff] =
     useState("");
+
+  const [holidayYear, setHolidayYear] =
+    useState(() => Math.max(
+      new Date().getFullYear(),
+      EARLIEST_HOLIDAY_YEAR
+    ));
 
   const [reason, setReason] =
     useState("");
@@ -226,7 +234,7 @@ export default function HolidayRequestDialog({
           });
 
           setErrorMessage(
-            "The user profile could not be created, so the default 28-day allowance is being used."
+            "The user profile could not be created, so the default holiday allowance is being used."
           );
         } finally {
           creatingProfile = false;
@@ -320,6 +328,12 @@ export default function HolidayRequestDialog({
 
     setFirstDayOff("");
     setLastDayOff("");
+    setHolidayYear(
+      Math.max(
+        new Date().getFullYear(),
+        EARLIEST_HOLIDAY_YEAR
+      )
+    );
     setReason("");
     setSaving(false);
     setErrorMessage("");
@@ -369,8 +383,16 @@ export default function HolidayRequestDialog({
   */
 
   const annualAllowance = useMemo(() => {
+    const yearlyAllowances =
+      userProfile?.holidayAllowances ||
+      userProfile?.annualAllowances ||
+      {};
+
     return findNumber(
       [
+        yearlyAllowances?.[holidayYear],
+        userProfile?.[`annualAllowance${holidayYear}`],
+        userProfile?.[`holidayAllowance${holidayYear}`],
         userProfile?.annualAllowance,
         userProfile?.holidayAllowance,
         userProfile?.allowance,
@@ -378,7 +400,7 @@ export default function HolidayRequestDialog({
       ],
       DEFAULT_ALLOWANCE
     );
-  }, [userProfile]);
+  }, [userProfile, holidayYear]);
 
   /*
   |--------------------------------------------------------------------------
@@ -399,15 +421,30 @@ export default function HolidayRequestDialog({
           request.employeeUid ||
           "";
 
+        const requestStartDate =
+          request.firstDayOff ??
+          request.startDate ??
+          request.dateOfRequest ??
+          null;
+
+        const requestDate =
+          parseDate(requestStartDate);
+
+        const requestYear =
+          Number(request.holidayYear) ||
+          requestDate?.getFullYear();
+
         return (
           String(requestUid) ===
-          String(firebaseUser.uid)
+            String(firebaseUser.uid) &&
+          requestYear === Number(holidayYear)
         );
       }
     );
   }, [
     holidayRequests,
     firebaseUser?.uid,
+    holidayYear,
   ]);
 
   /*
@@ -485,6 +522,26 @@ export default function HolidayRequestDialog({
       0
     );
 
+  const minimumHolidayDate =
+    `${holidayYear}-01-01`;
+
+  const maximumHolidayDate =
+    `${holidayYear}-12-31`;
+
+  const availableHolidayYears = useMemo(() => {
+    const years = [];
+
+    for (
+      let year = EARLIEST_HOLIDAY_YEAR;
+      year <= LATEST_HOLIDAY_YEAR;
+      year += 1
+    ) {
+      years.push(year);
+    }
+
+    return years;
+  }, []);
+
   const invalidDateRange =
     Boolean(firstDayOff) &&
     Boolean(lastDayOff) &&
@@ -492,6 +549,16 @@ export default function HolidayRequestDialog({
     Boolean(parseDate(lastDayOff)) &&
     parseDate(lastDayOff) <
       parseDate(firstDayOff);
+
+  const datesOutsideSelectedYear =
+    Boolean(firstDayOff) &&
+    Boolean(lastDayOff) &&
+    (
+      parseDate(firstDayOff)?.getFullYear() !==
+        Number(holidayYear) ||
+      parseDate(lastDayOff)?.getFullYear() !==
+        Number(holidayYear)
+    );
 
   const exceedsAllowance =
     workingDays > remainingDays;
@@ -502,10 +569,25 @@ export default function HolidayRequestDialog({
     Boolean(lastDayOff) &&
     workingDays > 0 &&
     !invalidDateRange &&
+    !datesOutsideSelectedYear &&
     !exceedsAllowance &&
     !loadingUser &&
     !loadingProfile &&
     !saving;
+
+  function handleHolidayYearChange(
+    event
+  ) {
+    const selectedYear = Number(
+      event.target.value
+    );
+
+    setHolidayYear(selectedYear);
+    setFirstDayOff("");
+    setLastDayOff("");
+    setErrorMessage("");
+    setSuccessMessage("");
+  }
 
   function handleFirstDayChange(
     event
@@ -584,6 +666,13 @@ export default function HolidayRequestDialog({
       return;
     }
 
+    if (datesOutsideSelectedYear) {
+      setErrorMessage(
+        `Both holiday dates must be inside ${holidayYear}.`
+      );
+      return;
+    }
+
     if (workingDays < 1) {
       setErrorMessage(
         "The selected dates do not contain any working days."
@@ -644,6 +733,9 @@ export default function HolidayRequestDialog({
           displayUserEmail,
 
         annualAllowance,
+
+        holidayYear:
+          Number(holidayYear),
 
         dateOfRequest:
           Timestamp.fromDate(
@@ -824,9 +916,15 @@ export default function HolidayRequestDialog({
           </section>
 
           <section className="holiday-request-card">
-            <h2>
-              Holiday Allowance
-            </h2>
+            <div className="holiday-card-title-row">
+              <h2>
+                Holiday Allowance
+              </h2>
+
+              <span className="holiday-year-badge">
+                {holidayYear}
+              </span>
+            </div>
 
             <div className="holiday-allowance-grid">
               <AllowanceCard
@@ -918,6 +1016,33 @@ export default function HolidayRequestDialog({
             </h2>
 
             <FieldLabel
+              icon={<CalendarIcon />}
+              label="Holiday Year"
+            />
+
+            <select
+              className="holiday-year-select"
+              value={holidayYear}
+              onChange={handleHolidayYearChange}
+              disabled={saving}
+            >
+              {availableHolidayYears.map(
+                (year) => (
+                  <option
+                    key={year}
+                    value={year}
+                  >
+                    {year}
+                  </option>
+                )
+              )}
+            </select>
+
+            <div className="holiday-year-note">
+              You can submit or record holiday requests from 2025 onwards.
+            </div>
+
+            <FieldLabel
               icon={<PersonIcon />}
               label="Name"
             />
@@ -949,7 +1074,8 @@ export default function HolidayRequestDialog({
               className="holiday-date-input"
               type="date"
               value={firstDayOff}
-              min={getTodayInputValue()}
+              min={minimumHolidayDate}
+              max={maximumHolidayDate}
               onChange={
                 handleFirstDayChange
               }
@@ -967,8 +1093,9 @@ export default function HolidayRequestDialog({
               value={lastDayOff}
               min={
                 firstDayOff ||
-                getTodayInputValue()
+                minimumHolidayDate
               }
+              max={maximumHolidayDate}
               onChange={
                 handleLastDayChange
               }
@@ -1001,6 +1128,14 @@ export default function HolidayRequestDialog({
               <div className="holiday-inline-error">
                 The last day off cannot be
                 before the first day off.
+              </div>
+            )}
+
+            {datesOutsideSelectedYear && (
+              <div className="holiday-inline-error">
+                Both dates must be inside
+                the selected holiday year,
+                {` ${holidayYear}.`}
               </div>
             )}
           </section>
@@ -1663,11 +1798,70 @@ const holidayRequestStyles = `
   }
 
   .holiday-request-card > h2,
-  .holiday-reason-heading h2 {
+  .holiday-reason-heading h2,
+  .holiday-card-title-row h2 {
     margin: 0;
     font-size: 30px;
     letter-spacing: -0.6px;
     font-weight: 950;
+  }
+
+  .holiday-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .holiday-year-badge {
+    min-width: 72px;
+    min-height: 42px;
+    padding: 0 14px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    color: #078af4;
+    background: #e5f3ff;
+    font-size: 16px;
+    font-weight: 950;
+  }
+
+  .holiday-year-select {
+    width: 100%;
+    min-height: 104px;
+    padding: 0 30px;
+    border: 2px solid transparent;
+    border-radius: 27px;
+    outline: none;
+    color: #111216;
+    background: #f0f1f6;
+    font: inherit;
+    font-size: 24px;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .holiday-year-select:focus {
+    border-color: #0a91f5;
+    background: white;
+    box-shadow:
+      0 0 0 5px
+      rgba(10, 145, 245, 0.12);
+  }
+
+  .holiday-year-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .holiday-year-note {
+    margin-top: 10px;
+    padding: 12px 15px;
+    border-radius: 15px;
+    color: #0871c9;
+    background: #eaf5ff;
+    font-size: 13px;
+    font-weight: 750;
   }
 
   .holiday-allowance-grid {
@@ -2069,8 +2263,20 @@ const holidayRequestStyles = `
     }
 
     .holiday-request-card > h2,
-    .holiday-reason-heading h2 {
+    .holiday-reason-heading h2,
+    .holiday-card-title-row h2 {
       font-size: 24px;
+    }
+
+    .holiday-year-select {
+      min-height: 88px;
+      padding: 0 22px;
+      border-radius: 23px;
+      font-size: 20px;
+    }
+
+    .holiday-year-note {
+      font-size: 12px;
     }
 
     .holiday-allowance-grid {

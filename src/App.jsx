@@ -838,19 +838,49 @@ function App() {
     user?.email ||
     "Admin User";
 
-  const stockValue = productsWithCategory.reduce(
+  const totalStockUnits = productsWithCategory.reduce(
     (total, product) =>
-      total + product.stock * product.netPrice,
+      total + Math.max(Number(product.stock || 0), 0),
     0
   );
 
-  const formattedStockValue = new Intl.NumberFormat(
+  const netStockValue = productsWithCategory.reduce(
+    (total, product) =>
+      total +
+      Math.max(Number(product.stock || 0), 0) *
+        Math.max(Number(product.netPrice || 0), 0),
+    0
+  );
+
+  const retailStockValue = productsWithCategory.reduce(
+    (total, product) =>
+      total +
+      Math.max(Number(product.stock || 0), 0) *
+        Math.max(Number(product.retailPrice || 0), 0),
+    0
+  );
+
+  const potentialGrossProfit = Math.max(
+    retailStockValue - netStockValue,
+    0
+  );
+
+  const currencyFormatter = new Intl.NumberFormat(
     "en-GB",
     {
       style: "currency",
       currency: "GBP",
     }
-  ).format(stockValue);
+  );
+
+  const formattedNetStockValue =
+    currencyFormatter.format(netStockValue);
+
+  const formattedRetailStockValue =
+    currencyFormatter.format(retailStockValue);
+
+  const formattedPotentialGrossProfit =
+    currencyFormatter.format(potentialGrossProfit);
 
   const imageCount = productsWithCategory.filter(
     (product) => Boolean(product.image)
@@ -1363,21 +1393,80 @@ function App() {
             ☰
           </button>
 
-          <div className="nab-global-search">
-            <span>⌕</span>
+          <div className="nab-header-welcome">
+            <div className="nab-header-welcome-copy">
+              <span className="nab-header-eyebrow">
+                ESTABLISHED 1984 • BRISTOL & PLYMOUTH
+              </span>
 
-            <input
-              type="search"
-              value={productSearch}
-              onChange={(event) =>
-                setProductSearch(event.target.value)
-              }
-              placeholder="Search products, SKU, barcode or category..."
-            />
+              <h1>
+                Welcome to N.A.B. Plant Engineering
+              </h1>
 
-            <kbd>Ctrl K</kbd>
+              <p className="nab-header-lead">
+                Capable of delivering throughout the UK and beyond.
+              </p>
+
+              <p className="nab-header-description">
+                Established in 1984, NAB Plant Engineering has specialised
+                in the supply of mobile air compressors and associated
+                equipment for a wide variety of industrial applications.
+                From our Bristol-based operation we supply mobile compressed
+                air solutions for civil engineering, quarrying, mining,
+                manufacturing, dockyards and the aerospace industry.
+              </p>
+
+              <p className="nab-header-description">
+                Our Compressed Air Centre supplies Hire, Sales, Installation,
+                Maintenance and Repair services throughout the South West
+                from our Bristol and Plymouth branches.
+              </p>
+
+              <div className="nab-header-actions-inline">
+                <button
+                  type="button"
+                  className="nab-header-primary"
+                  onClick={() =>
+                    setToastMessage(
+                      "Contact Us is not connected yet."
+                    )
+                  }
+                >
+                  Contact Us
+                </button>
+
+                <button
+                  type="button"
+                  className="nab-header-secondary"
+                  onClick={() =>
+                    setToastMessage(
+                      "News and information updates are coming soon."
+                    )
+                  }
+                >
+                  Latest News
+                </button>
+              </div>
+            </div>
+
+            <div className="nab-header-feature-card">
+              <span>COMPRESSED AIR CENTRE</span>
+
+              <strong>
+                Hire • Sales • Installation
+              </strong>
+
+              <p>
+                Maintenance and repair support across the South West.
+              </p>
+
+              <div className="nab-header-feature-tags">
+                <span>Bristol</span>
+                <span>Plymouth</span>
+                <span>UK Delivery</span>
+              </div>
+            </div>
           </div>
-
         </header>
 
         <div className="nab-header-actions-row">
@@ -1491,11 +1580,27 @@ function App() {
 
             <section className="nab-stats-grid">
               <MetricCard
-                icon="⬡"
+                icon="£"
                 type="blue"
                 label="Stock Value (Net)"
-                value={formattedStockValue}
-                detail={`${productsWithCategory.length} live products`}
+                value={formattedNetStockValue}
+                detail={`${totalStockUnits} total stock units`}
+              />
+
+              <MetricCard
+                icon="£"
+                type="teal"
+                label="Stock Value (Retail)"
+                value={formattedRetailStockValue}
+                detail="Retail value of all stock"
+              />
+
+              <MetricCard
+                icon="↗"
+                type="green"
+                label="Potential Gross Profit"
+                value={formattedPotentialGrossProfit}
+                detail="Retail value minus net value"
               />
 
               <MetricCard
@@ -1508,7 +1613,7 @@ function App() {
 
               <MetricCard
                 icon="□"
-                type="green"
+                type="orange"
                 label="Live Products"
                 value={productsWithCategory.length}
                 detail={`${filteredProducts.length} in current view`}
@@ -1516,7 +1621,7 @@ function App() {
 
               <MetricCard
                 icon="▧"
-                type="orange"
+                type="pink"
                 label="Images"
                 value={imageCount}
                 detail={`${Math.max(
@@ -2483,15 +2588,160 @@ const appStyles = `
   }
 
   .nab-header {
-    min-height: 88px;
-    padding: 15px 22px;
+    min-height: 270px;
+    padding: 24px 24px 22px;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
+    align-items: start;
     gap: 18px;
-    border-bottom: 1px solid #e4eaf2;
-    background: rgba(255,255,255,.97);
-    box-shadow: 0 10px 28px rgba(15,23,42,.045);
+    border-bottom: 1px solid #dce6f1;
+    color: #ffffff;
+    background:
+      radial-gradient(
+        circle at 88% 16%,
+        rgba(255, 194, 0, .18),
+        transparent 24%
+      ),
+      radial-gradient(
+        circle at 12% 8%,
+        rgba(25, 124, 255, .34),
+        transparent 34%
+      ),
+      linear-gradient(
+        135deg,
+        #061b35 0%,
+        #0a3f7d 56%,
+        #0756a9 100%
+      );
+    box-shadow: 0 16px 34px rgba(7, 35, 72, .18);
+  }
+
+  .nab-header-welcome {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(250px, .65fr);
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .nab-header-welcome-copy {
+    min-width: 0;
+  }
+
+  .nab-header-eyebrow {
+    display: block;
+    color: #ffd24a;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: 1.15px;
+  }
+
+  .nab-header-welcome h1 {
+    margin: 7px 0 5px;
+    color: #ffffff;
+    font-size: clamp(27px, 3.2vw, 44px);
+    line-height: 1.02;
+    letter-spacing: -1.15px;
+  }
+
+  .nab-header-lead {
+    margin: 0;
+    color: #dbeafe;
+    font-size: clamp(14px, 1.6vw, 18px);
+    font-weight: 850;
+  }
+
+  .nab-header-description {
+    max-width: 980px;
+    margin: 12px 0 0;
+    color: rgba(255,255,255,.82);
+    font-size: 11px;
+    line-height: 1.65;
+    font-weight: 600;
+  }
+
+  .nab-header-actions-inline {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .nab-header-primary,
+  .nab-header-secondary {
+    min-height: 42px;
+    padding: 0 16px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 950;
+    cursor: pointer;
+  }
+
+  .nab-header-primary {
+    border: 0;
+    color: #102647;
+    background: #ffd24a;
+    box-shadow: 0 10px 22px rgba(255, 194, 0, .2);
+  }
+
+  .nab-header-secondary {
+    border: 1px solid rgba(255,255,255,.26);
+    color: #ffffff;
+    background: rgba(255,255,255,.08);
+    backdrop-filter: blur(10px);
+  }
+
+  .nab-header-feature-card {
+    min-width: 0;
+    padding: 19px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 18px;
+    background: rgba(255,255,255,.08);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.1),
+      0 14px 30px rgba(3, 24, 51, .12);
+    backdrop-filter: blur(14px);
+  }
+
+  .nab-header-feature-card > span {
+    color: #ffd24a;
+    font-size: 9px;
+    font-weight: 950;
+    letter-spacing: .95px;
+  }
+
+  .nab-header-feature-card > strong {
+    margin-top: 8px;
+    color: #ffffff;
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .nab-header-feature-card > p {
+    margin: 8px 0 0;
+    color: rgba(255,255,255,.78);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .nab-header-feature-tags {
+    margin-top: 14px;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+
+  .nab-header-feature-tags span {
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #ffffff;
+    background: rgba(255,255,255,.11);
+    font-size: 8px;
+    font-weight: 850;
   }
 
   .nab-mobile-menu {
@@ -2506,7 +2756,6 @@ const appStyles = `
     cursor: pointer;
   }
 
-  .nab-global-search,
   .nab-inline-search {
     min-width: 0;
     display: flex;
@@ -2516,21 +2765,11 @@ const appStyles = `
     background: #ffffff;
   }
 
-  .nab-global-search {
-    min-width: 0;
-    width: 100%;
-    min-height: 55px;
-    padding: 0 16px;
-    border-radius: 17px;
-  }
-
-  .nab-global-search > span,
   .nab-inline-search > span {
     color: #5f7593;
     font-size: 23px;
   }
 
-  .nab-global-search input,
   .nab-inline-search input {
     min-width: 0;
     width: 100%;
@@ -2542,20 +2781,8 @@ const appStyles = `
     font-weight: 700;
   }
 
-  .nab-global-search input::placeholder,
   .nab-inline-search input::placeholder {
     color: #91a1b7;
-  }
-
-  .nab-global-search kbd {
-    padding: 5px 8px;
-    border: 1px solid #dce5f0;
-    border-radius: 8px;
-    color: #667a95;
-    background: #f8fafc;
-    font-family: inherit;
-    font-size: 10px;
-    white-space: nowrap;
   }
 
   .nab-header-actions-row {
@@ -2773,7 +3000,7 @@ const appStyles = `
   .nab-stats-grid {
     display: grid;
     grid-template-columns:
-      repeat(4, minmax(0, 1fr));
+      repeat(3, minmax(0, 1fr));
     gap: 13px;
   }
 
@@ -2806,6 +3033,10 @@ const appStyles = `
     background: #0878f5;
   }
 
+  .nab-metric-icon.teal {
+    background: #0f9f9a;
+  }
+
   .nab-metric-icon.purple {
     background: #7445e8;
   }
@@ -2816,6 +3047,10 @@ const appStyles = `
 
   .nab-metric-icon.orange {
     background: #f5a100;
+  }
+
+  .nab-metric-icon.pink {
+    background: #db3f86;
   }
 
   .nab-metric-card > div:last-child {
@@ -2840,7 +3075,7 @@ const appStyles = `
     color: #102647;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 20px;
+    font-size: clamp(17px, 1.6vw, 22px);
     line-height: 1.15;
   }
 
@@ -3761,10 +3996,31 @@ const appStyles = `
     }
 
     .nab-header {
-      min-height: 72px;
-      padding: 11px 13px;
+      min-height: 0;
+      padding: 14px 13px 18px;
       grid-template-columns: auto minmax(0, 1fr);
-      gap: 10px;
+      gap: 11px;
+    }
+
+    .nab-header-welcome {
+      grid-template-columns: 1fr;
+    }
+
+    .nab-header-feature-card {
+      display: none;
+    }
+
+    .nab-header-description {
+      font-size: 10px;
+      line-height: 1.55;
+    }
+
+    .nab-header-description + .nab-header-description {
+      display: none;
+    }
+
+    .nab-header-actions-inline {
+      margin-top: 13px;
     }
 
     .nab-header-actions-row {
@@ -3782,13 +4038,6 @@ const appStyles = `
       display: block;
     }
 
-    .nab-global-search {
-      min-height: 47px;
-    }
-
-    .nab-global-search kbd {
-      display: none;
-    }
 
     .nab-profile > div:last-child {
       display: none;
@@ -3836,9 +4085,6 @@ const appStyles = `
   }
 
   @media (max-width: 500px) {
-    .nab-global-search input {
-      font-size: 12px;
-    }
 
     .nab-stats-grid {
       grid-template-columns: 1fr;
