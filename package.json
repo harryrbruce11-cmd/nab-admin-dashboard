@@ -1,13 +1,14 @@
 {
   "name": "nab-admin-dashboard",
   "productName": "NAB Admin Dashboard",
-  "version": "0.1.21",
+  "version": "0.1.22",
   "private": true,
   "description": "NAB Admin Dashboard desktop app",
   "author": "Harry Bruce",
   "main": "electron/main.js",
   "homepage": "./",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "dev": "concurrently \"npm run react-dev\" \"npm run electron-dev\"",
     "react-dev": "vite --host 0.0.0.0",
     "electron-dev": "wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .",
@@ -67,6 +68,7 @@
       "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "mac": {
+      "icon": "electron/assets/CellBlockStores_Icon_1024.png",
       "target": [
         "dmg",
         "zip"

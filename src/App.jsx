@@ -13,20 +13,25 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 import "./App.css";
 import ProductEditScreen from "./ProductEditScreen";
 import OrdersScreen from "./OrdersScreen";
+import AdminScreen from "./AdminScreen";
 import HolidayDashboard from "./holidays/HolidayDashboard";
 
 import {
   mainAuth,
   mainDb,
+  mainFirebaseApp,
+  mainStorage,
   vehicleCheckDb,
 } from "./firebase";
 
 const auth = mainAuth;
 const db = mainDb;
+const cloudFunctions = getFunctions(mainFirebaseApp, "europe-west2");
 
 const DEFAULT_ALLOWANCE = 28;
 const PRODUCT_BATCH_SIZE = 24;
@@ -994,6 +999,19 @@ function App() {
       stock: "0",
       image: "",
       description: "",
+      supplier: "",
+      status: "Active",
+      tags: "",
+      stockLocation: "Main Warehouse",
+      reorderLevel: "5",
+      warehouseBin: "",
+      shelf: "",
+      row: "",
+      binNumber: "",
+      trackInventory: true,
+      lowStockAlert: true,
+      allowOutOfStock: false,
+      adminNotes: "",
     });
   }
 
@@ -1012,6 +1030,21 @@ function App() {
       stock: String(product.stock ?? ""),
       image: product.image || "",
       description: product.description || "",
+      supplier: product.supplier || "",
+      status: product.status || "Active",
+      tags: Array.isArray(product.tags)
+        ? product.tags.join(", ")
+        : product.tags || "",
+      stockLocation: product.stockLocation || "Main Warehouse",
+      reorderLevel: String(product.reorderLevel ?? 5),
+      warehouseBin: product.warehouseBin || "",
+      shelf: product.shelf || "",
+      row: product.row || "",
+      binNumber: product.binNumber || "",
+      trackInventory: product.trackInventory ?? true,
+      lowStockAlert: product.lowStockAlert ?? true,
+      allowOutOfStock: product.allowOutOfStock ?? false,
+      adminNotes: product.adminNotes || "",
     });
   }
 
@@ -1072,6 +1105,22 @@ function App() {
       },
       imageUrl: String(editForm.image || "").trim(),
       image: String(editForm.image || "").trim(),
+      supplier: String(editForm.supplier || "").trim(),
+      status: editForm.status || "Active",
+      tags: String(editForm.tags || "")
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      stockLocation: editForm.stockLocation || "Main Warehouse",
+      reorderLevel: toNumber(editForm.reorderLevel, 5),
+      warehouseBin: String(editForm.warehouseBin || "").trim(),
+      shelf: String(editForm.shelf || "").trim(),
+      row: String(editForm.row || "").trim(),
+      binNumber: String(editForm.binNumber || "").trim(),
+      trackInventory: editForm.trackInventory !== false,
+      lowStockAlert: editForm.lowStockAlert !== false,
+      allowOutOfStock: editForm.allowOutOfStock === true,
+      adminNotes: String(editForm.adminNotes || "").trim(),
       stock: {
         inStock: toNumber(editForm.stock, 0),
       },
@@ -1235,6 +1284,21 @@ function App() {
     );
   }
 
+  if (activeView === "admin") {
+    return (
+      <AdminScreen
+        db={db}
+        holidayDb={vehicleCheckDb}
+        storage={mainStorage}
+        functions={cloudFunctions}
+        user={user}
+        version={version}
+        onBack={() => setActiveView("products")}
+        onCheckForUpdates={handleCheckForUpdates}
+      />
+    );
+  }
+
   return (
     <div className="nab-app">
       <style>{appStyles}</style>
@@ -1264,7 +1328,7 @@ function App() {
 
         <SidebarSection title="STORE">
           <SidebarButton
-            active
+            active={activeView === "products"}
             icon="⬡"
             label="Products"
             count={productsWithCategory.length}
@@ -1272,6 +1336,7 @@ function App() {
           />
 
           <SidebarButton
+            active={activeView === "orders"}
             icon="🛒"
             label="Orders"
             onClick={() => navigate("orders")}
@@ -1292,6 +1357,13 @@ function App() {
         </SidebarSection>
 
         <SidebarSection title="MANAGEMENT">
+          <SidebarButton
+            active={activeView === "admin"}
+            icon="⌁"
+            label="Admin"
+            onClick={() => navigate("admin")}
+          />
+
           <SidebarButton
             icon="▥"
             label="Reports"
