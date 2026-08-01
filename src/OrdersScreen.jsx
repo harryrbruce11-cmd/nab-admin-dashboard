@@ -24,6 +24,7 @@ const Icon = ({ name, size = 22 }) => {
     print: <><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></>,
     box: <><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></>,
     clipboard: <><path d="M9 5H6a2 2 0 0 0-2 2v13h16V7a2 2 0 0 0-2-2h-3"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M8 12h8M8 16h6"/></>,
+    arrow: <><path d="M5 12h14"/><path d="m14 7 5 5-5 5"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>;
 };
@@ -79,20 +80,27 @@ function OrderRow({ order, onClick }) {
       ? "Completed"
       : "Needs printing";
   return (
-    <button className="ma-order-row" onClick={onClick}>
-      <span className={`ma-order-icon ${kind}`}>
-        <Icon name={returned ? "return" : completed ? "check" : "box"} size={25}/>
-      </span>
-      <span className="ma-order-main">
-        <strong>{order.orderRef || order.reference || order.id}</strong>
-        <span>{order.customer || order.fleet || "NAB"}</span>
-        {(getDelivery(order) || order.reason) && <small>{getDelivery(order) || order.reason}</small>}
-        <small>{(order.items || []).length} lines · {getQuantity(order)} units</small>
-      </span>
-      <span className="ma-order-side">
+    <button className={`ma-order-card ${kind}`} onClick={onClick} aria-label={`Open order ${order.orderRef || order.reference || order.id}`}>
+      <span className="ma-order-card-top">
+        <span className={`ma-order-icon ${kind}`}>
+          <Icon name={returned ? "return" : completed ? "check" : "box"} size={24}/>
+        </span>
         <em className={kind}>{status}</em>
-        <small>{getDate(order)}</small>
       </span>
+      <span className="ma-order-card-main">
+        <small>Order reference</small>
+        <strong>{order.orderRef || order.reference || order.id}</strong>
+        <span className="ma-order-details">
+          <span><small>Customer</small><b>{order.customer || "Not provided"}</b></span>
+          <span><small>Fleet no.</small><b>{order.fleet || order.fleetNumber || "Not provided"}</b></span>
+          <span><small>User</small><b>{order.user || order.userName || order.orderedBy || "Not provided"}</b></span>
+        </span>
+      </span>
+      <span className="ma-order-card-footer">
+        <span><b>{getQuantity(order)}</b> units <i>·</i> {(order.items || []).length} lines</span>
+        <span className="ma-order-open"><Icon name="arrow" size={17}/></span>
+      </span>
+      <span className="ma-order-date">{getDate(order)}</span>
     </button>
   );
 }
@@ -151,7 +159,7 @@ export default function OrdersScreen({ onBack, user }) {
       <section className="ma-order-list">
         <div className="ma-list-heading"><div><h2>{tab === "pick" ? "Needs printing" : tab === "completed" ? "Completed orders" : "Returns"}</h2><p>{visible.length} order{visible.length === 1 ? "" : "s"}</p></div></div>
         {loading ? <div className="ma-empty">Loading orders…</div> :
-          visible.length ? visible.map(order => <OrderRow key={order.id} order={order} onClick={() => setSelectedOrder(order)}/>) :
+          visible.length ? <div className="ma-order-grid">{visible.map(order => <OrderRow key={order.id} order={order} onClick={() => setSelectedOrder(order)}/>)}</div> :
           <div className="ma-empty"><Icon name="clipboard" size={34}/><strong>No orders here</strong><span>Orders matching this view will appear here.</span></div>}
       </section>
     </main>

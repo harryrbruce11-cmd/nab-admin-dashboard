@@ -35,6 +35,12 @@ contextBridge.exposeInMainWorld(
         "print:pdf",
         data
       ),
+
+    savePdf: (data) =>
+      ipcRenderer.invoke("pdf:save", data),
+
+    printGeneratedPdf: (data) =>
+      ipcRenderer.invoke("print:generated-pdf", data),
   }
 );
 

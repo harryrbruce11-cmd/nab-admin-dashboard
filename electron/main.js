@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -93,20 +93,32 @@ function configureAutoUpdater() {
 ipcMain.handle("print:get-printers", async (event) => {
   try {
     const win = BrowserWindow.fromWebContents(event.sender);
-
-    if (!win || win.isDestroyed()) {
-      return [];
+    let electronPrinters = [];
+    if (win && !win.isDestroyed()) {
+      try { electronPrinters = await win.webContents.getPrintersAsync(); } catch {}
     }
-
-    const electronPrinters = await win.webContents.getPrintersAsync();
-
-    return electronPrinters.map((printer) => ({
+    const nativePrinters = await getPrinters().catch(() => []);
+    const combined = new Map();
+    electronPrinters.forEach(printer => combined.set(String(printer.name).toLowerCase(), {
       name: printer.name,
       displayName: printer.displayName || printer.name,
       isDefault: Boolean(printer.isDefault),
       status: printer.status || "Ready",
       description: printer.description || "",
     }));
+    nativePrinters.forEach(printer => {
+      const key = String(printer.name || "").toLowerCase();
+      if (!key) return;
+      const existing = combined.get(key);
+      combined.set(key, existing || {
+        name: printer.name,
+        displayName: printer.name,
+        isDefault: Boolean(printer.isDefault || printer.default),
+        status: printer.status || "Ready",
+        description: "Windows printer",
+      });
+    });
+    return [...combined.values()];
   } catch (error) {
     console.error("Printer list error:", error);
     return [];
@@ -118,19 +130,20 @@ ipcMain.handle("print:pdf", async (_event, payload = {}) => {
 
   try {
     const pdfUrl = String(payload.pdfUrl || "").trim();
+    const pdfBase64 = String(payload.pdfBase64 || "").replace(/^data:application\/pdf(?:;filename=[^;]+)?;base64,/, "");
 
     const deviceName = String(
       payload.deviceName || payload.printerName || ""
     ).trim();
 
-    if (!pdfUrl) {
+    if (!pdfUrl && !pdfBase64) {
       return {
         ok: false,
         message: "No PDF URL supplied.",
       };
     }
 
-    if (!pdfUrl.startsWith("https://")) {
+    if (pdfUrl && !pdfUrl.startsWith("https://")) {
       return {
         ok: false,
         message: "PDF URL must be HTTPS.",
@@ -150,13 +163,14 @@ ipcMain.handle("print:pdf", async (_event, payload = {}) => {
     console.log("Printer:", deviceName);
     console.log("================================");
 
-    const response = await fetch(pdfUrl);
-
-    if (!response.ok) {
-      throw new Error(`Failed to download PDF (${response.status})`);
+    let pdfBuffer;
+    if (pdfBase64) {
+      pdfBuffer = Buffer.from(pdfBase64, "base64");
+    } else {
+      const response = await fetch(pdfUrl);
+      if (!response.ok) throw new Error(`Failed to download PDF (${response.status})`);
+      pdfBuffer = await response.buffer();
     }
-
-    const pdfBuffer = await response.buffer();
 
     tempPdf = path.join(os.tmpdir(), `nab-order-${Date.now()}.pdf`);
 
@@ -216,6 +230,49 @@ ipcMain.handle("print:pdf", async (_event, payload = {}) => {
         } catch {}
       }, 10000);
     }
+  }
+});
+
+ipcMain.handle("pdf:save", async (event, payload = {}) => {
+  try {
+    const pdfBase64 = String(payload.pdfBase64 || "").replace(/^data:application\/pdf(?:;filename=[^;]+)?;base64,/, "");
+    if (!pdfBase64) return { ok: false, message: "No PDF data supplied." };
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showSaveDialog(win, {
+      title: "Save PDF report",
+      defaultPath: String(payload.fileName || "vehicle-check-report.pdf"),
+      filters: [{ name: "PDF documents", extensions: ["pdf"] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(result.filePath, Buffer.from(pdfBase64, "base64"));
+    return { ok: true, filePath: result.filePath };
+  } catch (error) {
+    return { ok: false, message: error?.message || "Could not save PDF." };
+  }
+});
+
+ipcMain.handle("print:generated-pdf", async (_event, payload = {}) => {
+  let tempPdf = "";
+  try {
+    const pdfBase64 = String(payload.pdfBase64 || "").replace(/^data:application\/pdf(?:;filename=[^;]+)?;base64,/, "");
+    const deviceName = String(payload.deviceName || "").trim();
+    if (!pdfBase64) return { ok: false, message: "The generated PDF is empty." };
+    tempPdf = path.join(os.tmpdir(), `nab-vehicle-report-${Date.now()}.pdf`);
+    fs.writeFileSync(tempPdf, Buffer.from(pdfBase64, "base64"));
+    const windowsPrinters = await getPrinters();
+    const matchedPrinter = deviceName
+      ? windowsPrinters.find(item => item.name === deviceName) || windowsPrinters.find(item => String(item.name || "").toLowerCase() === deviceName.toLowerCase())
+      : null;
+    if (deviceName && !matchedPrinter) return { ok: false, message: `Printer not found: ${deviceName}` };
+
+    await print(tempPdf, matchedPrinter ? { printer: matchedPrinter.name, copies: 1 } : { copies: 1 });
+    return { ok: true, message: "PDF report sent to printer." };
+  } catch (error) {
+    return { ok: false, message: error?.message || "Generated PDF print failed." };
+  } finally {
+    if (tempPdf) setTimeout(() => {
+      try { if (fs.existsSync(tempPdf)) fs.unlinkSync(tempPdf); } catch {}
+    }, 10000);
   }
 });
 

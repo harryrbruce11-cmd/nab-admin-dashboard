@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 
-export default function HolidayCalendar({ requests = [] }) {
+export default function HolidayCalendar({ requests = [], onRemove }) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(null);
 
@@ -349,9 +349,15 @@ export default function HolidayCalendar({ requests = [] }) {
                       </span>
                     </div>
 
-                    <span className="holiday-calendar-approved-badge">
-                      Approved
-                    </span>
+                    {onRemove ? (
+                      <button type="button" className="holiday-calendar-remove" onClick={() => onRemove(request, selectedDay)}>
+                        Remove this day
+                      </button>
+                    ) : (
+                      <span className="holiday-calendar-approved-badge">
+                        Approved
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1130,6 +1136,18 @@ const holidayCalendarStyles = `
     background: #ddf8e6;
     font-size: 12px;
     font-weight: 900;
+  }
+
+  .holiday-calendar-remove {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 11px;
+    color: #b91c1c;
+    background: #fee2e2;
+    font-size: 10px;
+    font-weight: 900;
+    cursor: pointer;
   }
 
   @media (max-width: 820px) {

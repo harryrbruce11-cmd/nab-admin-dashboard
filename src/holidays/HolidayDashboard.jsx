@@ -382,10 +382,10 @@ export default function HolidayDashboard({
     );
   }, [pendingUserRequests]);
 
-  const remainingDays = Math.max(
-    annualAllowance - usedDays,
-    0
-  );
+  const savedDaysLeft = Number(userProfile?.holidayDaysLeft);
+  const remainingDays = Number.isFinite(savedDaysLeft)
+    ? Math.max(savedDaysLeft, 0)
+    : Math.max(annualAllowance - usedDays, 0);
 
   const availableAfterPending = Math.max(
     remainingDays - pendingDays,
@@ -405,31 +405,6 @@ export default function HolidayDashboard({
         "approved"
     );
   }, [requests]);
-
-  const upcomingTeamRequests = useMemo(() => {
-    const today = startOfDay(new Date());
-
-    return approvedTeamRequests
-      .filter((request) => {
-        const lastDay =
-          parseDate(request.lastDayOff);
-
-        return (
-          lastDay &&
-          endOfDay(lastDay) >= today
-        );
-      })
-      .sort((first, second) => {
-        return (
-          (parseDate(
-            first.firstDayOff
-          )?.getTime() || 0) -
-          (parseDate(
-            second.firstDayOff
-          )?.getTime() || 0)
-        );
-      });
-  }, [approvedTeamRequests]);
 
   const awayToday = useMemo(() => {
     return approvedTeamRequests.filter(
@@ -649,39 +624,6 @@ export default function HolidayDashboard({
             <HolidayCalendar
               requests={approvedTeamRequests}
             />
-
-            <section className="holiday-card">
-              <div className="holiday-card-heading">
-                <div>
-                  <span>
-                    UPCOMING APPROVED HOLIDAYS
-                  </span>
-                  <h2>Dates Already Taken</h2>
-                </div>
-
-                <span className="holiday-count">
-                  {upcomingTeamRequests.length}
-                </span>
-              </div>
-
-              {upcomingTeamRequests.length === 0 ? (
-                <EmptyState
-                  title="No upcoming holidays"
-                  message="There are currently no approved upcoming holidays."
-                />
-              ) : (
-                <div className="holiday-booking-list">
-                  {upcomingTeamRequests.map(
-                    (request) => (
-                      <TeamHolidayRow
-                        key={request.id}
-                        request={request}
-                      />
-                    )
-                  )}
-                </div>
-              )}
-            </section>
 
             <section className="holiday-card holiday-history-card">
               <div className="holiday-history-heading">

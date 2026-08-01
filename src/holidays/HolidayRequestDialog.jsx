@@ -489,10 +489,10 @@ export default function HolidayRequestDialog({
       );
   }, [currentUserRequests]);
 
-  const remainingDays = Math.max(
-    annualAllowance - usedDays,
-    0
-  );
+  const savedDaysLeft = Number(userProfile?.holidayDaysLeft);
+  const remainingDays = Number.isFinite(savedDaysLeft)
+    ? Math.max(savedDaysLeft, 0)
+    : Math.max(annualAllowance - usedDays, 0);
 
   /*
   |--------------------------------------------------------------------------

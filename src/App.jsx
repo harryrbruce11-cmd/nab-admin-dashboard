@@ -20,6 +20,7 @@ import ProductEditScreen from "./ProductEditScreen";
 import OrdersScreen from "./OrdersScreen";
 import AdminScreen from "./AdminScreen";
 import HolidayDashboard from "./holidays/HolidayDashboard";
+import VehicleCheckDashboard from "./VehicleCheckDashboard";
 
 import {
   mainAuth,
@@ -827,13 +828,18 @@ function App() {
     0
   );
 
-  const remainingHolidayDays = Math.max(
-    annualAllowance - usedHolidayDays,
-    0
-  );
+  const savedHolidayDaysLeft = Number(userProfile?.holidayDaysLeft);
+  const remainingHolidayDays = Number.isFinite(savedHolidayDaysLeft)
+    ? Math.max(savedHolidayDaysLeft, 0)
+    : Math.max(annualAllowance - usedHolidayDays, 0);
 
-  const latestHolidayRequest =
-    currentUserHolidayRequests[0] || null;
+  const upcomingApprovedHoliday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return approvedUserRequests
+      .filter(request => toMillis(request.endDate) >= today.getTime())
+      .sort((first, second) => toMillis(first.startDate) - toMillis(second.startDate))[0] || null;
+  }, [approvedUserRequests]);
 
   const displayName =
     userProfile?.displayName ||
@@ -928,8 +934,7 @@ function App() {
       view === "reports" ||
       view === "analytics" ||
       view === "users" ||
-      view === "settings" ||
-      view === "vehicle"
+      view === "settings"
     ) {
       setToastMessage(
         `${view.charAt(0).toUpperCase() + view.slice(1)} is not connected yet.`
@@ -1284,6 +1289,19 @@ function App() {
     );
   }
 
+  if (activeView === "vehicle") {
+    return (
+      <div className="admin-page vehicle-user-page">
+        <header className="admin-header">
+          <button className="admin-back" onClick={() => setActiveView("products")}>← Dashboard</button>
+          <div><span>Available to all users</span><h1>Vehicle Checks</h1><p>Monthly mileage, completed checks and printable reports.</p></div>
+          <div />
+        </header>
+        <main className="vehicle-user-layout"><section className="admin-workspace"><VehicleCheckDashboard db={vehicleCheckDb}/></section></main>
+      </div>
+    );
+  }
+
   if (activeView === "admin") {
     return (
       <AdminScreen
@@ -1350,8 +1368,9 @@ function App() {
           />
 
           <SidebarButton
+            active={activeView === "vehicle"}
             icon="◇"
-            label="Daily Vehicle Check"
+            label="Vehicle Checks"
             onClick={() => navigate("vehicle")}
           />
         </SidebarSection>
@@ -1619,7 +1638,7 @@ function App() {
             type="button"
             onClick={() => navigate("vehicle")}
           >
-            ◇ Daily Vehicle Check
+            ◇ Vehicle Checks
           </button>
         </nav>
 
@@ -1891,35 +1910,31 @@ function App() {
 
               <div className="nab-latest-request">
                 <div className="nab-latest-heading">
-                  <span>Latest Request</span>
+                  <span>Upcoming Approved Holiday</span>
 
-                  {latestHolidayRequest && (
-                    <StatusBadge
-                      status={latestHolidayRequest.status}
-                    />
-                  )}
+                  {upcomingApprovedHoliday && <StatusBadge status="Approved" />}
                 </div>
 
-                {latestHolidayRequest ? (
+                {upcomingApprovedHoliday ? (
                   <>
                     <strong>
-                      {latestHolidayRequest.reason ||
+                      {upcomingApprovedHoliday.reason ||
                         "Holiday request"}
                     </strong>
 
                     <p>
                       {formatDateRange(
-                        latestHolidayRequest.startDate,
-                        latestHolidayRequest.endDate
+                        upcomingApprovedHoliday.startDate,
+                        upcomingApprovedHoliday.endDate
                       )}{" "}
-                      ({latestHolidayRequest.workingDays}{" "}
-                      {latestHolidayRequest.workingDays === 1
+                      ({upcomingApprovedHoliday.workingDays}{" "}
+                      {upcomingApprovedHoliday.workingDays === 1
                         ? "day"
                         : "days"})
                     </p>
                   </>
                 ) : (
-                  <p>No holiday requests have been submitted.</p>
+                  <p>No upcoming approved holidays.</p>
                 )}
               </div>
 

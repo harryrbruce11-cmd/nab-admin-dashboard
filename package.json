@@ -28,6 +28,7 @@
     "@vitejs/plugin-react": "latest",
     "electron-updater": "^6.8.3",
     "firebase": "^12.13.0",
+    "jspdf": "^4.2.1",
     "node-fetch": "^2.7.0",
     "nodemailer": "^8.0.8",
     "pdf-to-printer": "^5.8.0",

@@ -13,7 +13,6 @@ export default function ProductEditScreen({
   saveLoading = false, categories = [],
 }) {
   const fileRef = useRef(null);
-  const [tab, setTab] = useState("product");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const categoryNames = useMemo(() => Array.from(new Set(namesFrom(categories))), [categories]);
   const image = form.image || product.image || product.imageUrl;
@@ -40,13 +39,8 @@ export default function ProductEditScreen({
       <div><span className="ma-eyebrow">{product.id ? "Product management" : "New catalogue item"}</span><h1>{product.id ? "Edit product" : "Add product"}</h1></div>
       <button className="ma-primary ma-desktop-save" onClick={onSave} disabled={saveLoading}>{saveLoading ? "Saving…" : "Save changes"}</button>
     </header>
-    <nav className="ma-editor-tabs">
-      <button className={tab === "product" ? "active" : ""} onClick={() => setTab("product")}>Product</button>
-      <button className={tab === "inventory" ? "active" : ""} onClick={() => setTab("inventory")}>Inventory</button>
-    </nav>
-
     <main className="ma-editor-body">
-      {tab === "product" ? <>
+      <>
         <section className="ma-edit-card ma-media-card">
           <div className="ma-product-photo">
             {image ? <img src={image} alt={form.name || "Product"}/> : <div className="ma-image-empty"><Icon name="image"/><span>Add a product image</span></div>}
@@ -78,7 +72,7 @@ export default function ProductEditScreen({
             <label className="ma-field"><span>Product tags</span><input value={form.tags || ""} onChange={e => onChange("tags", e.target.value)} placeholder="filter, oil, service"/></label>
           </div>
         </section>
-      </> : <>
+        <div className="ma-inline-section-heading"><span className="ma-eyebrow">Stock management</span><h2>Inventory</h2><p>Location, quantities, availability and internal stock information.</p></div>
         <section className="ma-edit-card">
           <div className="ma-card-heading"><span className="ma-eyebrow">Stock control</span><h2>Inventory</h2></div>
           <label className="ma-field"><span>Stock location</span><select value={form.stockLocation || "Main Warehouse"} onChange={e => onChange("stockLocation", e.target.value)}><option>Main Warehouse</option><option>Workshop</option><option>Parts counter</option></select></label>
@@ -96,7 +90,7 @@ export default function ProductEditScreen({
         </section>
         <section className="ma-edit-card"><label className="ma-field"><span>Admin notes</span><textarea value={form.adminNotes || ""} onChange={e => onChange("adminNotes", e.target.value)} placeholder="Private notes for administrators"/></label></section>
         <button type="button" className="ma-history">↶ <span>Stock history</span><b>›</b></button>
-      </>}
+      </>
     </main>
     <footer className="ma-save-bar"><button className="ma-primary" onClick={onSave} disabled={saveLoading}><Icon name="save"/>{saveLoading ? "Saving…" : "Save changes"}</button></footer>
   </div>;
