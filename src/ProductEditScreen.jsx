@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import "./mobileAdmin.css";
 
 const Icon = ({ name }) => <span className={`ma-ui-icon ${name}`} aria-hidden />;
@@ -10,21 +11,38 @@ function namesFrom(categories) {
 
 export default function ProductEditScreen({
   product = {}, form = {}, onChange, onBack, onSave, onAddCategory,
-  saveLoading = false, categories = [],
+  saveLoading = false, categories = [], storage,
 }) {
   const fileRef = useRef(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState("");
   const categoryNames = useMemo(() => Array.from(new Set(namesFrom(categories))), [categories]);
   const image = form.image || product.image || product.imageUrl;
   const bool = (field, fallback = false) => form[field] === undefined ? fallback : Boolean(form[field]);
   const quantity = Number(form.stock || 0);
 
-  function chooseImage(event) {
+  async function chooseImage(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => onChange("image", reader.result || "");
-    reader.readAsDataURL(file);
+    if (!storage) {
+      setImageError("Firebase Storage is unavailable.");
+      return;
+    }
+    setImageUploading(true);
+    setImageError("");
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const productFolder = product.id || `new-${Date.now()}`;
+      const imageRef = ref(storage, `products/${productFolder}/${Date.now()}-${safeName}`);
+      await uploadBytes(imageRef, file, { contentType: file.type || "image/jpeg" });
+      onChange("image", await getDownloadURL(imageRef));
+    } catch (error) {
+      setImageError(error?.message || "The product image could not be uploaded.");
+    } finally {
+      setImageUploading(false);
+      event.target.value = "";
+    }
   }
 
   async function addCategory() {
@@ -37,7 +55,7 @@ export default function ProductEditScreen({
     <header className="ma-editor-header">
       <button className="ma-close" onClick={onBack}>Close</button>
       <div><span className="ma-eyebrow">{product.id ? "Product management" : "New catalogue item"}</span><h1>{product.id ? "Edit product" : "Add product"}</h1></div>
-      <button className="ma-primary ma-desktop-save" onClick={onSave} disabled={saveLoading}>{saveLoading ? "Saving…" : "Save changes"}</button>
+      <button className="ma-primary ma-desktop-save" onClick={onSave} disabled={saveLoading || imageUploading}>{imageUploading ? "Uploading image…" : saveLoading ? "Saving…" : "Save changes"}</button>
     </header>
     <main className="ma-editor-body">
       <>
@@ -46,7 +64,8 @@ export default function ProductEditScreen({
             {image ? <img src={image} alt={form.name || "Product"}/> : <div className="ma-image-empty"><Icon name="image"/><span>Add a product image</span></div>}
           </div>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={chooseImage}/>
-          <button className="ma-image-button" type="button" onClick={() => fileRef.current?.click()}><Icon name="camera"/> Change product image</button>
+          <button className="ma-image-button" type="button" disabled={imageUploading} onClick={() => fileRef.current?.click()}><Icon name="camera"/> {imageUploading ? "Uploading image…" : "Change product image"}</button>
+          {imageError && <div className="ma-image-error">{imageError}</div>}
           <label className="ma-field"><span>Image URL</span><input value={form.image || ""} onChange={e => onChange("image", e.target.value)} placeholder="https://…"/></label>
         </section>
 
@@ -92,6 +111,6 @@ export default function ProductEditScreen({
         <button type="button" className="ma-history">↶ <span>Stock history</span><b>›</b></button>
       </>
     </main>
-    <footer className="ma-save-bar"><button className="ma-primary" onClick={onSave} disabled={saveLoading}><Icon name="save"/>{saveLoading ? "Saving…" : "Save changes"}</button></footer>
+    <footer className="ma-save-bar"><button className="ma-primary" onClick={onSave} disabled={saveLoading || imageUploading}><Icon name="save"/>{imageUploading ? "Uploading image…" : saveLoading ? "Saving…" : "Save changes"}</button></footer>
   </div>;
 }

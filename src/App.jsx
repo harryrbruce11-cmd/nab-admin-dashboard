@@ -335,6 +335,7 @@ function normaliseProduct(documentSnapshot) {
     supplier: firstNonEmpty(
       data.supplier,
       data.supplierName,
+      data?.product?.supplier,
       data.vendor,
       ""
     ),
@@ -342,8 +343,45 @@ function normaliseProduct(documentSnapshot) {
       data.adminNotes,
       data.admin_notes,
       data.notes?.admin,
+      data?.product?.adminNotes,
       ""
     ),
+    stockLocation: firstNonEmpty(
+      data.stockLocation,
+      data.stock_location,
+      data?.inventory?.stockLocation,
+      data?.inventory?.location,
+      data?.stock?.location,
+      "Main Warehouse"
+    ),
+    reorderLevel: toNumber(firstNonEmpty(
+      data.reorderLevel,
+      data.reorder_level,
+      data?.inventory?.reorderLevel,
+      data?.stock?.reorderLevel,
+      5
+    ), 5),
+    warehouseBin: firstNonEmpty(
+      data.warehouseBin,
+      data.warehouse_bin,
+      data?.inventory?.warehouseBin,
+      data?.inventory?.bin,
+      data?.stock?.warehouseBin,
+      ""
+    ),
+    shelf: firstNonEmpty(data.shelf, data?.inventory?.shelf, data?.stock?.shelf, ""),
+    row: firstNonEmpty(data.row, data?.inventory?.row, data?.stock?.row, ""),
+    binNumber: firstNonEmpty(
+      data.binNumber,
+      data.bin_number,
+      data?.inventory?.binNumber,
+      data?.inventory?.number,
+      data?.stock?.binNumber,
+      ""
+    ),
+    trackInventory: firstNonEmpty(data.trackInventory, data?.inventory?.trackInventory, data?.stock?.trackInventory, true),
+    lowStockAlert: firstNonEmpty(data.lowStockAlert, data?.inventory?.lowStockAlert, data?.stock?.lowStockAlert, true),
+    allowOutOfStock: firstNonEmpty(data.allowOutOfStock, data?.inventory?.allowOutOfStock, data?.stock?.allowOutOfStock, false),
     status: firstNonEmpty(data.status, "Active"),
     createdAt: data.createdAt || data.created_at || null,
     updatedAt: data.updatedAt || data.updated_at || null,
@@ -1107,6 +1145,19 @@ function App() {
       ? Number(Math.min(Math.max(((retailPrice - specialPrice) / retailPrice) * 100, 0), 100).toFixed(2))
       : 0;
 
+    const supplier = String(editForm.supplier || "").trim();
+    const adminNotes = String(editForm.adminNotes || "").trim();
+    const stockLocation = editForm.stockLocation || "Main Warehouse";
+    const reorderLevel = toNumber(editForm.reorderLevel, 5);
+    const warehouseBin = String(editForm.warehouseBin || "").trim();
+    const shelf = String(editForm.shelf || "").trim();
+    const stockRow = String(editForm.row || "").trim();
+    const binNumber = String(editForm.binNumber || "").trim();
+    const trackInventory = editForm.trackInventory !== false;
+    const lowStockAlert = editForm.lowStockAlert !== false;
+    const allowOutOfStock = editForm.allowOutOfStock === true;
+    const inStock = toNumber(editForm.stock, 0);
+
     const payload = {
       name: String(editForm.name || "").trim(),
       sku: String(editForm.sku || "").trim(),
@@ -1132,20 +1183,42 @@ function App() {
       },
       imageUrl: String(editForm.image || "").trim(),
       image: String(editForm.image || "").trim(),
-      supplier: String(editForm.supplier || "").trim(),
+      supplier,
+      supplierName: supplier,
       status: editForm.status || "Active",
-      stockLocation: editForm.stockLocation || "Main Warehouse",
-      reorderLevel: toNumber(editForm.reorderLevel, 5),
-      warehouseBin: String(editForm.warehouseBin || "").trim(),
-      shelf: String(editForm.shelf || "").trim(),
-      row: String(editForm.row || "").trim(),
-      binNumber: String(editForm.binNumber || "").trim(),
-      trackInventory: editForm.trackInventory !== false,
-      lowStockAlert: editForm.lowStockAlert !== false,
-      allowOutOfStock: editForm.allowOutOfStock === true,
-      adminNotes: String(editForm.adminNotes || "").trim(),
+      stockLocation,
+      reorderLevel,
+      warehouseBin,
+      shelf,
+      row: stockRow,
+      binNumber,
+      trackInventory,
+      lowStockAlert,
+      allowOutOfStock,
+      adminNotes,
+      admin_notes: adminNotes,
+      inventory: {
+        stockLocation,
+        reorderLevel,
+        warehouseBin,
+        shelf,
+        row: stockRow,
+        binNumber,
+        trackInventory,
+        lowStockAlert,
+        allowOutOfStock,
+      },
       stock: {
-        inStock: toNumber(editForm.stock, 0),
+        inStock,
+        location: stockLocation,
+        reorderLevel,
+        warehouseBin,
+        shelf,
+        row: stockRow,
+        binNumber,
+        trackInventory,
+        lowStockAlert,
+        allowOutOfStock,
       },
       updatedAt: serverTimestamp(),
     };
@@ -1247,6 +1320,7 @@ function App() {
         onAddCategory={handleAddCategory}
         saveLoading={saveLoading}
         categories={categories}
+        storage={mainStorage}
         primaryButtonStyle={primaryButtonStyle}
         secondaryButtonStyle={secondaryButtonStyle}
         sectionEyebrowStyle={sectionEyebrowStyle}
@@ -1321,7 +1395,7 @@ function App() {
   }
 
   if (activeView === "fuel") {
-    return <FuelHistory db={db} user={user} onBack={() => setActiveView("products")}/>;
+    return <FuelHistory db={db} onBack={() => setActiveView("products")}/>;
   }
 
   if (activeView === "admin") {
