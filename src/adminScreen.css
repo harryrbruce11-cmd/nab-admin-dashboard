@@ -52,4 +52,4 @@
  .vehicle-fleet-grid footer>span{color:#111;font-size:9px;font-weight:750}
  .vehicle-fleet-grid footer em{font-size:9px}
  @media(max-width:900px){.vehicle-fleet-grid{grid-template-columns:repeat(2,minmax(190px,1fr))}}
- @media(max-width:520px){.vehicle-fleet-grid{grid-template-columns:1fr}.vehicle-fleet-grid>button{aspect-ratio:auto;min-height:430px}}
+ @media(max-width:520px){.vehicle-fleet-grid{grid-template-columns:1fr}.vehicle-fleet-grid>button{width:min(100%,430px);aspect-ratio:1/1;min-height:0;margin-inline:auto}}

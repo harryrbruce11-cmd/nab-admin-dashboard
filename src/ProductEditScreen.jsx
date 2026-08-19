@@ -58,6 +58,7 @@ export default function ProductEditScreen({
             <label className="ma-field"><span>Barcode</span><div className="ma-input-action"><input value={form.barcode || ""} onChange={e => onChange("barcode", e.target.value)} placeholder="Barcode"/><button type="button"><Icon name="scan"/></button></div></label>
             <label className="ma-field"><span>Retail price</span><div className="ma-prefix-input"><b>£</b><input type="number" step=".01" value={form.retailPrice || ""} onChange={e => onChange("retailPrice", e.target.value)} placeholder="0.00"/></div></label>
             <label className="ma-field"><span>Cost price</span><div className="ma-prefix-input"><b>£</b><input type="number" step=".01" value={form.netPrice || ""} onChange={e => onChange("netPrice", e.target.value)} placeholder="0.00"/></div></label>
+            <label className="ma-field full"><span>Special price</span><div className="ma-prefix-input"><b>£</b><input type="number" min="0" step=".01" value={form.specialPrice || ""} onChange={e => onChange("specialPrice", e.target.value)} placeholder="0.00"/></div><small className="ma-field-help">Saved as the product's special and discounted selling price.</small></label>
             <label className="ma-field full"><span>Description</span><textarea value={form.description || ""} onChange={e => onChange("description", e.target.value)} placeholder="Describe this product"/></label>
           </div>
         </section>
@@ -67,9 +68,9 @@ export default function ProductEditScreen({
             <div className="ma-field full ma-select-wrap"><span>Category</span><button type="button" className="ma-select-button" onClick={() => setCategoryOpen(!categoryOpen)}>{form.category || "Choose a category"} <b>⌄</b></button>
               {categoryOpen && <div className="ma-select-menu">{categoryNames.map(name => <button type="button" key={name} onClick={() => { onChange("category", name); setCategoryOpen(false); }}>{name}</button>)}<div><input value={form.category || ""} onChange={e => onChange("category", e.target.value)} placeholder="New category"/><button type="button" onClick={addCategory}>Add</button></div></div>}
             </div>
-            <label className="ma-field full"><span>Supplier</span><input value={form.supplier || ""} onChange={e => onChange("supplier", e.target.value)} placeholder="Supplier name"/></label>
+            <label className="ma-field full"><span>Supplier</span><input value={form.supplier || ""} onChange={e => onChange("supplier", e.target.value)} placeholder="Supplier name"/><small className="ma-field-help">The supplier is saved with this product.</small></label>
             <label className="ma-field"><span>Status</span><select value={form.status || "Active"} onChange={e => onChange("status", e.target.value)}><option>Active</option><option>Draft</option><option>Archived</option></select></label>
-            <label className="ma-field"><span>Product tags</span><input value={form.tags || ""} onChange={e => onChange("tags", e.target.value)} placeholder="filter, oil, service"/></label>
+            <label className="ma-field full"><span>Admin notes</span><textarea value={form.adminNotes || ""} onChange={e => onChange("adminNotes", e.target.value)} placeholder="Private notes for administrators"/><small className="ma-field-help">These notes are saved privately with the product.</small></label>
           </div>
         </section>
         <div className="ma-inline-section-heading"><span className="ma-eyebrow">Stock management</span><h2>Inventory</h2><p>Location, quantities, availability and internal stock information.</p></div>
@@ -88,7 +89,6 @@ export default function ProductEditScreen({
           <div><span>Low stock alert</span><Switch checked={bool("lowStockAlert", true)} onChange={value => onChange("lowStockAlert", value)}/></div>
           <div><span>Allow sale when out of stock</span><Switch checked={bool("allowOutOfStock", false)} onChange={value => onChange("allowOutOfStock", value)}/></div>
         </section>
-        <section className="ma-edit-card"><label className="ma-field"><span>Admin notes</span><textarea value={form.adminNotes || ""} onChange={e => onChange("adminNotes", e.target.value)} placeholder="Private notes for administrators"/></label></section>
         <button type="button" className="ma-history">↶ <span>Stock history</span><b>›</b></button>
       </>
     </main>

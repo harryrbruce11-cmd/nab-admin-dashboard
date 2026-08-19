@@ -193,7 +193,9 @@ export default function AdminScreen({ db, holidayDb, storage, functions, user, v
 
   function updateKioskColour(field, event) {
     const value = event.currentTarget.value;
-    setKiosk(current => ({ ...current, [field]: value }));
+    setKiosk(current => field === "buttonBackgroundColor"
+      ? { ...current, buttonBackgroundColor: value, backgroundColorTop: value }
+      : { ...current, [field]: value });
   }
 
   async function moveTool(fromId, toId) {
@@ -250,9 +252,8 @@ export default function AdminScreen({ db, holidayDb, storage, functions, user, v
               </article>)}</div> : <div className="admin-logo-empty">No logo images added yet.</div>}
             </div>
             <label className="full"><span>APK URL</span><input value={kiosk.apkUrl || ""} onChange={event => setKiosk({...kiosk, apkUrl: event.target.value})}/></label>
-             <label className="admin-colour"><span>Page background top</span><div><input aria-label="Pick page background top colour" type="color" value={kiosk.backgroundColorTop || "#0ea5e9"} onInput={event => updateKioskColour("backgroundColorTop", event)}/><input value={kiosk.backgroundColorTop || ""} onChange={event => setKiosk({...kiosk, backgroundColorTop: event.target.value})} placeholder="#0ea5e9"/></div></label>
+             <label className="admin-colour"><span>Button colour</span><div><input aria-label="Pick button colour" type="color" value={kiosk.buttonBackgroundColor || kiosk.backgroundColorTop || "#000000"} onChange={event => updateKioskColour("buttonBackgroundColor", event)}/><input value={kiosk.buttonBackgroundColor || kiosk.backgroundColorTop || "#000000"} onChange={event => { const value = event.target.value; setKiosk({...kiosk, buttonBackgroundColor: value, backgroundColorTop: value}); }} placeholder="#000000"/></div></label>
              <label className="admin-colour"><span>Page background bottom</span><div><input aria-label="Pick page background bottom colour" type="color" value={kiosk.backgroundColorBottom || "#020617"} onInput={event => updateKioskColour("backgroundColorBottom", event)}/><input value={kiosk.backgroundColorBottom || ""} onChange={event => setKiosk({...kiosk, backgroundColorBottom: event.target.value})} placeholder="#020617"/></div></label>
-             <label className="admin-colour"><span>Button background colour</span><div><input aria-label="Pick button background colour" type="color" value={kiosk.buttonBackgroundColor || "#000000"} onInput={event => updateKioskColour("buttonBackgroundColor", event)}/><input value={kiosk.buttonBackgroundColor || ""} onChange={event => setKiosk({...kiosk, buttonBackgroundColor: event.target.value})} placeholder="#000000"/></div></label>
              <label className="admin-colour"><span>Button text colour</span><div><input aria-label="Pick button text colour" type="color" value={kiosk.buttonTextColor || "#ffffff"} onInput={event => updateKioskColour("buttonTextColor", event)}/><input value={kiosk.buttonTextColor || ""} onChange={event => setKiosk({...kiosk, buttonTextColor: event.target.value})} placeholder="#ffffff"/></div></label>
              <label className="admin-colour full"><span>Page text colour (optional)</span><div><input aria-label="Pick page text colour" type="color" value={kiosk.textColor || "#ffffff"} onInput={event => updateKioskColour("textColor", event)}/><input value={kiosk.textColor || ""} onChange={event => setKiosk({...kiosk, textColor: event.target.value})} placeholder="Use kiosk default"/></div></label>
             <div className="admin-kiosk-preview-wrap full">

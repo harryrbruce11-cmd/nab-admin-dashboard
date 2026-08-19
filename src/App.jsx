@@ -21,6 +21,7 @@ import OrdersScreen from "./OrdersScreen";
 import AdminScreen from "./AdminScreen";
 import HolidayDashboard from "./holidays/HolidayDashboard";
 import VehicleCheckDashboard from "./VehicleCheckDashboard";
+import FuelHistory from "./FuelHistory";
 
 import {
   mainAuth,
@@ -293,6 +294,18 @@ function normaliseProduct(documentSnapshot) {
     ),
     netPrice: toNumber(netPrice, 0),
     retailPrice: toNumber(retailPrice, toNumber(netPrice, 0)),
+    specialPrice: toNumber(
+      firstNonEmpty(
+        data?.pricing?.special,
+        data?.pricing?.specialPrice,
+        data.specialPrice,
+        data.special,
+        data?.pricing?.discount,
+        data.discountPrice,
+        0
+      ),
+      0
+    ),
     discountPercent: toNumber(
       firstNonEmpty(
         data?.pricing?.discountPercent,
@@ -319,6 +332,19 @@ function normaliseProduct(documentSnapshot) {
       data.summary,
       ""
     ),
+    supplier: firstNonEmpty(
+      data.supplier,
+      data.supplierName,
+      data.vendor,
+      ""
+    ),
+    adminNotes: firstNonEmpty(
+      data.adminNotes,
+      data.admin_notes,
+      data.notes?.admin,
+      ""
+    ),
+    status: firstNonEmpty(data.status, "Active"),
     createdAt: data.createdAt || data.created_at || null,
     updatedAt: data.updatedAt || data.updated_at || null,
   };
@@ -985,6 +1011,7 @@ function App() {
       stock: 0,
       netPrice: 0,
       retailPrice: 0,
+      specialPrice: 0,
       discountPrice: 0,
       discountPercent: 0,
       categoryId: "",
@@ -999,6 +1026,7 @@ function App() {
       category: "",
       netPrice: "",
       retailPrice: "",
+      specialPrice: "",
       discountPrice: "",
       discountPercent: "",
       stock: "0",
@@ -1006,7 +1034,6 @@ function App() {
       description: "",
       supplier: "",
       status: "Active",
-      tags: "",
       stockLocation: "Main Warehouse",
       reorderLevel: "5",
       warehouseBin: "",
@@ -1030,6 +1057,7 @@ function App() {
       category: product.resolvedCategoryName || "",
       netPrice: String(product.netPrice ?? ""),
       retailPrice: String(product.retailPrice ?? ""),
+      specialPrice: String(product.specialPrice ?? ""),
       discountPrice: String(product.discountPrice ?? ""),
       discountPercent: String(product.discountPercent ?? ""),
       stock: String(product.stock ?? ""),
@@ -1037,9 +1065,6 @@ function App() {
       description: product.description || "",
       supplier: product.supplier || "",
       status: product.status || "Active",
-      tags: Array.isArray(product.tags)
-        ? product.tags.join(", ")
-        : product.tags || "",
       stockLocation: product.stockLocation || "Main Warehouse",
       reorderLevel: String(product.reorderLevel ?? 5),
       warehouseBin: product.warehouseBin || "",
@@ -1077,17 +1102,10 @@ function App() {
     );
 
     const retailPrice = toNumber(editForm.retailPrice, 0);
-    const discountPercent = Math.min(
-      Math.max(toNumber(editForm.discountPercent, 0), 0),
-      100
-    );
-
-    const calculatedDiscountPrice = Number(
-      (
-        retailPrice -
-        retailPrice * (discountPercent / 100)
-      ).toFixed(2)
-    );
+    const specialPrice = toNumber(editForm.specialPrice, 0);
+    const discountPercent = retailPrice > 0 && specialPrice > 0
+      ? Number(Math.min(Math.max(((retailPrice - specialPrice) / retailPrice) * 100, 0), 100).toFixed(2))
+      : 0;
 
     const payload = {
       name: String(editForm.name || "").trim(),
@@ -1099,23 +1117,23 @@ function App() {
       categoryId: matchedCategory?.id || "",
       netPrice: toNumber(editForm.netPrice, 0),
       retailPrice,
-      discountPrice: calculatedDiscountPrice,
+      specialPrice,
+      special: specialPrice,
+      discountPrice: specialPrice,
       discountPercent,
       price: retailPrice,
       pricing: {
         net: toNumber(editForm.netPrice, 0),
         retail: retailPrice,
-        discount: calculatedDiscountPrice,
+        special: specialPrice,
+        specialPrice,
+        discount: specialPrice,
         discountPercent,
       },
       imageUrl: String(editForm.image || "").trim(),
       image: String(editForm.image || "").trim(),
       supplier: String(editForm.supplier || "").trim(),
       status: editForm.status || "Active",
-      tags: String(editForm.tags || "")
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
       stockLocation: editForm.stockLocation || "Main Warehouse",
       reorderLevel: toNumber(editForm.reorderLevel, 5),
       warehouseBin: String(editForm.warehouseBin || "").trim(),
@@ -1302,6 +1320,10 @@ function App() {
     );
   }
 
+  if (activeView === "fuel") {
+    return <FuelHistory db={db} user={user} onBack={() => setActiveView("products")}/>;
+  }
+
   if (activeView === "admin") {
     return (
       <AdminScreen
@@ -1372,6 +1394,12 @@ function App() {
             icon="◇"
             label="Vehicle Checks"
             onClick={() => navigate("vehicle")}
+          />
+          <SidebarButton
+            active={activeView === "fuel"}
+            icon="F"
+            label="Fuel History"
+            onClick={() => navigate("fuel")}
           />
         </SidebarSection>
 
